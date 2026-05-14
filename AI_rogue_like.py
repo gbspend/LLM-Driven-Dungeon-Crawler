@@ -49,6 +49,7 @@ class rogue_like:
         self.collision_list = collision_list
         self.re_sprites = re_sprites
         self.playerAggress = False
+        self.dropchance = 0
 
     def spawn_enemy(self, enemy, fair_distance, collision_list):
         # while an enemy has not been spawned
@@ -108,14 +109,26 @@ class rogue_like:
         if combat_enemy.hp <= 0:
             self.textBox.add(f'You defeated the {combat_enemy.name}.')
             self.enemies.remove(combat_enemy)
-        return
+            return True
+
+        return False
+    
+    def item_spawn(self,enemy):
+        new_item, new_item_Type = api_call.gen_item(enemy,self.player,self.dropchance)
+        if new_item != "N":
+            textBox.add(("you got a new " + new_item_Type))
+            textBox.add(new_item[0])
+            textBox.add(new_item[1])
+            self.dropchance =0
+        else:
+            self.dropchance += 1
 
     def state_update(self, order):
         # order is tuple with parameters: action, target, amount
         # Skip turn
         if order == "SKIP" or order[0] == "ITEM":
             if order[0] == "ITEM":
-                item = player.items.pop(order[1])
+                item = player.items.pop(order[1]) #TODO
                 print("USE ITEM:",item)
             turn = True
             self.playerAggress = False
@@ -152,14 +165,19 @@ class rogue_like:
                                 enemy_number = api_call.enemy_summon_count(instructions)
                                 enemy_number = int(enemy_number.split("Enemies: ")[1])
                                 if enemy_number != 0:
-                                    e1, e2, e3 = api_call.enemy_generator(instructions, self.re_sprites)
+                                    e1, e2, e3 = api_call.enemy_generator(instructions, self.re_sprites) # this will crash the game (missing parameter)
                                     self.state_update(("NECRO", e1, e2, e3))
                             # Bias towards player seems to be present in scenarios where the enemy attacks first.
                             # Experiment with prompt.
                             # Throw away prompt output if inadequate
-                            self.combat_handler(enemy, instructions)
+                            EnemyDie = self.combat_handler(enemy, instructions)
+                            if EnemyDie:
+                                # TODO
+                                self.item_spawn(enemy)
+
                             if player.hp <= 0:
                                 textBox.add('GAME OVER.')
+
         elif order[0] == "ATK":
             # Rename attack command?
                 if order[1] == player:
@@ -180,8 +198,13 @@ class rogue_like:
                                 instructions = api_call.combat_state_update_alt(player, enemy, pState, eState)
                             # Throw away prompt output if inadequate
                             # printing combat description
-                            self.combat_handler(enemy, instructions)
+                            EnemyDie = self.combat_handler(enemy, instructions)
+                            if EnemyDie:
+                                # TODO
+                                self.item_spawn(enemy)
+
                             self.playerAggress = True
+
         # Necromancer enemy spawn state
         elif order[0] == "NECRO":
             # Spawning reinforcement enemy
@@ -295,6 +318,8 @@ if __name__ == "__main__":
     shade_surf.set_alpha(160)
     inv = Inventory(SCREEN_WIDTH, SCREEN_HEIGHT, base_font, title_font)
 
+    textBox.add("w - up, s - down, a - left, d - right")
+    textBox.add("space - skip turn, i - inventory")
     while running:
         #--INPUT----------------------------------------
         mouse_click = False
@@ -359,7 +384,7 @@ if __name__ == "__main__":
                         tooltip.clear()
                         #add lines
                         tooltip.add(enemy.name)
-                        tooltip.add(enemy.description)
+                        tooltip.add(enemy.get_desc())
                         tooltip.resize_to_text()
                     offset_pos = (mouse_pos[0] + 15, mouse_pos[1] + 10)
                     tooltip.render(screen, offset_pos)
