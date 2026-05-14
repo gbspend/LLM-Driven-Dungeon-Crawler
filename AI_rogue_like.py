@@ -1,6 +1,7 @@
 import pygame
 import random
 import api_call
+from consts import *
 from spritesheet import Spritesheet
 from characters import Character, Enemy
 from tiles import TileMap
@@ -206,9 +207,7 @@ if __name__ == "__main__":
     tile_size = 16
 
     # Set up the screen
-    screen_width = 854
-    screen_height = 480
-    screen = pygame.display.set_mode((screen_width, screen_height))
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("AI Roguelike")
 
     # Colors
@@ -217,17 +216,17 @@ if __name__ == "__main__":
 
     # Text setup
     base_font = pygame.font.SysFont('Georgia', 16)
+    text_font = pygame.font.SysFont('Georgia', 17)
     title_font = pygame.font.SysFont('Georgia', 18, bold=True)
-    textBox = TextBox(base_font, ((screen_width / 2), 0),
-        pygame.Rect(screen_width // 2, screen_height // 2, screen_width // 2, screen_height),white, black)
+    textBox = TextBox(text_font,pygame.Rect(0,0, TEXT_WIDTH, SCREEN_HEIGHT),white, black)
 
     # Spritesheet
     tile_spritesheet = Spritesheet('Dungeon_Tileset.png')
     char_spritesheet = Spritesheet('Dungeon_character.png')
 
     # Loading map tile
-    tilemap = TileMap('large_test_tile.csv', tile_spritesheet)
-    tiles_list = tilemap.load_tiles('large_test_tile.csv', tile_spritesheet)
+    tilemap = TileMap('test_tile2.csv', tile_spritesheet)
+    tiles_list,map_width,map_height = tilemap.get_tiles()
     collision_list = []
     up = (0, -1)
     down = (0, 1)
@@ -268,7 +267,7 @@ if __name__ == "__main__":
 
     roguelike = rogue_like(enemies, player, textBox, default_pos, fair_distance, collision_list, sprites)
 
-    tooltip = TextBox(pygame.font.SysFont('Georgia', 12), (0,0), pygame.Rect(0,0,200,200), white, black)
+    tooltip = TextBox(base_font, pygame.Rect(0,0,TIP_WIDTH,TIP_HEIGHT), white, black)
     last_enemy = None
 
     # Game loop
@@ -291,10 +290,10 @@ if __name__ == "__main__":
         roguelike.spawn_enemy(enemy, fair_distance, collision_list)
         
     state = GameState.RUN
-    shade_surf = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+    shade_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     shade_surf.fill((0, 0, 0))
     shade_surf.set_alpha(160)
-    inv = Inventory(screen_width, screen_height, base_font, title_font)
+    inv = Inventory(SCREEN_WIDTH, SCREEN_HEIGHT, base_font, title_font)
 
     while running:
         #--INPUT----------------------------------------
@@ -332,20 +331,24 @@ if __name__ == "__main__":
         #--RENDER & UPDATE------------------------------
         # Clear the screen
         screen.fill(black)
-
-        # Add sprite to screen
-        # Adding all tiles
-        for tile in tiles_list:
-            screen.blit(tile[0], (tile[1], tile[2]))
         
         # Render text to screen
         textBox.render(screen)
+        
+        game_surf = pygame.Surface((map_width,map_height), pygame.SRCALPHA)
 
-        player.draw(screen)
+        # Adding all tiles
+        for tile in tiles_list:
+            game_surf.blit(tile[0], (tile[1], tile[2]))
+
+        # Add sprite to screen
+        player.draw(game_surf)
         for enemy in enemies:
-            enemy.draw(screen)
+            enemy.draw(game_surf)
         player_attack = False
         enemy_attack = False
+        
+        screen.blit(pygame.transform.scale_by(game_surf,GAME_SCALE),(0,0))
         
         if state == GameState.RUN:
             for enemy in enemies:
