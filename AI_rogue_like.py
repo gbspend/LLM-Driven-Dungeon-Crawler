@@ -225,6 +225,7 @@ class rogue_like:
 if __name__ == "__main__":
     # Initialize Pygame
     pygame.init()
+    clock = pygame.time.Clock()
 
     # variable to quickly change for differently sized tiles
     tile_size = 16
@@ -250,6 +251,7 @@ if __name__ == "__main__":
     # Loading map tile
     tilemap = TileMap('test_tile2.csv', tile_spritesheet)
     tiles_list,map_width,map_height = tilemap.get_tiles()
+    
     collision_list = []
     up = (0, -1)
     down = (0, 1)
@@ -260,13 +262,13 @@ if __name__ == "__main__":
 
     # 16x16 sprites: adjust each coordinate by 16 to swap sprite
     default_pos = (0, 0)
-    knight_1 = char_spritesheet.get_sprite(0,32,16,16)
-    knight_e = char_spritesheet.get_sprite(80,32,16,16)
-    skel_g = char_spritesheet.get_sprite(64,48,16,16)
-    skel_r = char_spritesheet.get_sprite(96,48,16,16)
-    necro_l = char_spritesheet.get_sprite(32,48,16,16)
-    necro_g = char_spritesheet.get_sprite(48,48,16,16)
-    spirit_g = char_spritesheet.get_sprite(16,48,16,16)
+    knight_1 = char_spritesheet.get_sprite_pair(0,32,16,16)
+    knight_e = char_spritesheet.get_sprite_pair(80,32,16,16)
+    skel_g = char_spritesheet.get_sprite_pair(64,48,16,16)
+    skel_r = char_spritesheet.get_sprite_pair(96,48,16,16)
+    necro_l = char_spritesheet.get_sprite_pair(32,48,16,16)
+    necro_g = char_spritesheet.get_sprite_pair(48,48,16,16)
+    spirit_g = char_spritesheet.get_sprite_pair(16,48,16,16)
     # sprite list for random enemy spawns
     sprites = {"Knight": knight_e, "Spirit": spirit_g, "Vampire": necro_l, "Knife Skeleton": skel_g, "Scythe Skeleton": skel_r}
 
@@ -354,6 +356,8 @@ if __name__ == "__main__":
         mouse_pos = pygame.mouse.get_pos()
         
         #--RENDER & UPDATE------------------------------
+        tilemap.update()
+        
         # Clear the screen
         screen.fill(black)
         
@@ -361,10 +365,7 @@ if __name__ == "__main__":
         textBox.render(screen)
         
         game_surf = pygame.Surface((map_width,map_height), pygame.SRCALPHA)
-
-        # Adding all tiles
-        for tile in tiles_list:
-            game_surf.blit(tile[0], (tile[1], tile[2]))
+        tilemap.draw(game_surf)
 
         # Add sprite to screen
         player.draw(game_surf)
@@ -405,6 +406,7 @@ if __name__ == "__main__":
 
         # Update the display
         pygame.display.flip()
+        clock.tick(30)
 
     # Quit Pygame
     pygame.quit()

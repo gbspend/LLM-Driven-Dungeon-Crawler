@@ -1,8 +1,9 @@
 import pygame
 import random
+from consts import *
 
 class Character():
-    def __init__(self, name, description, max_hp, hp, atk, pos, sprite):
+    def __init__(self, name, description, max_hp, hp, atk, pos, sprites):
         self.name = name
         self.description = description
         self.max_hp = max_hp
@@ -10,11 +11,15 @@ class Character():
         self.atk = atk # not used
         self.pos = pos
         self.current_effects = []
-        if sprite:
-            temp = pygame.Surface(sprite.get_size(), pygame.SRCALPHA)
-            temp.fill((255,255,0))
-            temp.blit(sprite, (0,0))
-            self.sprite = temp
+        self.sprites = sprites
+        self.i = 0
+        self.t = BOB_TIME
+        size = sprites[0].get_size()
+        self.hi = pygame.Surface((size[0],size[1]-1))
+        self.hi.fill((255,255,0))
+        #move player up and down a little
+        self.off = 0
+        self.t = 15
         self.weapons = [
             ('Knife', 'A small dull knife.'),
             ('Longsword', 'A well-forged longsword.'),
@@ -68,7 +73,7 @@ class Character():
         for t in tiles:
             t_pos = (t[1], t[2])
             if dest == t_pos:
-                if t[3] is True:
+                if t[3] is True: #blocked movement
                     # Leaving turn alone on unsuccesful movement
                     return pos, turn, attack, dest
                 else:
@@ -77,17 +82,27 @@ class Character():
                     return t_pos, turn, attack, dest
     
     def draw(self, screen):
-        screen.blit(self.sprite, self.pos)
+        #it's a little hacky to put the timer here, but it's OK for simple animation
+        self.t -= 1
+        if self.t <= 0:
+            self.t = BOB_TIME
+            self.i += 1
+            if self.i >= len(self.sprites):
+                self.i = 0
+        screen.blit(self.hi,self.pos)
+        screen.blit(self.sprites[self.i], (self.pos[0],self.pos[1]+self.off))
 
 class Enemy():
-    def __init__(self, name, description, max_hp, hp, atk, pos, sprite):
+    def __init__(self, name, description, max_hp, hp, atk, pos, sprites):
         self.name = name
         self.description = description
         self.max_hp = max_hp
         self.hp = hp
         self.atk = atk # not used
         self.pos = pos
-        self.sprite = sprite
+        self.sprites = sprites
+        self.i = 0
+        self.t = BOB_TIME
         self.current_effects = []
 
     # enemy location list for combat
@@ -139,10 +154,16 @@ class Enemy():
                     return t_pos, attack
                     
     def get_rect(self):
-        return self.sprite.get_rect(topleft=self.pos)
+        return self.sprites[0].get_rect(topleft=self.pos)
     
     def draw(self, screen):
-        screen.blit(self.sprite, self.pos)
+        self.t -= 1
+        if self.t <= 0:
+            self.t = BOB_TIME
+            self.i += 1
+            if self.i >= len(self.sprites):
+                self.i = 0
+        screen.blit(self.sprites[self.i], self.pos)
 
     def get_desc(self):
         desc = self.description
