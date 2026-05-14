@@ -8,8 +8,9 @@ class Character():
         self.description = description
         self.max_hp = max_hp
         self.hp = hp
-        self.atk = atk
+        self.atk = atk # not used
         self.pos = pos
+        self.current_effects = []
         if sprite:
             temp = pygame.Surface(sprite.get_size(), pygame.SRCALPHA)
             temp.fill((255,255,0))
@@ -29,7 +30,10 @@ class Character():
         ]
     
     def get_desc(self):
-        return self.description + ", armed with " + self.weapons[self.weapon_i][1]
+        desc = self.description + ", armed with " + self.weapons[self.weapon_i][1]
+        if self.current_effects:
+            desc = desc + (" with the current effects:",self.current_effects)
+        return desc
 
     # player spawn location
     def spawn(self, tiles_list, collision_list):
@@ -82,9 +86,10 @@ class Enemy():
         self.description = description
         self.max_hp = max_hp
         self.hp = hp
-        self.atk = atk
+        self.atk = atk # not used
         self.pos = pos
         self.sprite = sprite
+        self.current_effects = []
 
     # enemy location list for combat
     def locations(self, enemies):
@@ -139,3 +144,9 @@ class Enemy():
     
     def draw(self, screen):
         screen.blit(self.sprite, self.pos)
+
+    def get_desc(self):
+        desc = self.description
+        if self.current_effects:
+            desc = desc + (" with the current effects:",self.current_effects)
+        return desc

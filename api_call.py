@@ -76,7 +76,7 @@ def get_response(prompt_str, model_str="llama-3.3-70b-versatile", verb=False):
     return output
     
 
-#=======================================================================================
+#====================================== combat prompts =================================================
 
 def combat_state_update(player, enemy):
     prompt_str = f'''Resolve this video game combat scenario, given the name and description of the player character and enemy to engage. 
@@ -93,7 +93,7 @@ def combat_state_update(player, enemy):
        Enemy: Reaper
        Enemy description: The skeleton of a strong warrior, armed with a scythe.
        Output: The mage blasts the reaper with a fireball. The now charred reaper shambles back to its feet, missing an arm. It is too far from the mage to retaliate. DEALT: MEDIUM. RECEIVED: NONE
-       Using the format from the examples, run a combat scenario with the player class {player.name}, with the description {player.get_desc()}, attacking a {enemy.name}, with the description {enemy.description}. If the player or enemy is supposed to be defeated in the scenario, the corresponding dealt or received value should be FATAL.'''
+       Using the format from the examples, run a combat scenario with the player class {player.name}, with the description {player.get_desc()}, attacking a {enemy.name}, with the description {enemy.get_desc()}. If the player or enemy is supposed to be defeated in the scenario, the corresponding dealt or received value should be FATAL.'''
 
 
     return get_response(prompt_str)
@@ -118,7 +118,7 @@ def combat_state_update_alt(player, enemy, pStatus = "HEALTHY", eStatus = "HEALT
        Status: HEALTHY
        Enemy description: The skeleton of a strong warrior, armed with a scythe.
        Output: The mage blasts the reaper with a fireball. The now charred reaper shambles back to its feet, missing an arm. It is too far from the mage to retaliate. DEALT: HIGH, RECEIVED: NONE
-       Using the format from the examples, run a combat scenario with the {pStatus} player {player.name}, with the description {player.get_desc()}, attacking a {eStatus} enemy {enemy.name}, with the description {enemy.description}.'''
+       Using the format from the examples, run a combat scenario with the {pStatus} player {player.name}, with the description {player.get_desc()}, attacking a {eStatus} enemy {enemy.name}, with the description {enemy.get_desc()}.'''
 
     return get_response(prompt_str, verb=verb)
 
@@ -142,7 +142,7 @@ def combat_state_update_enemy(player, enemy, pStatus = "HEALTHY", eStatus = "HEA
        Status: HEALTHY
        Enemy description: The skeleton of a strong warrior, armed with a scythe.
        Output: The reaper lunges at the mage, swinging its scythe at their neck. The mage attempts to dodge at the last minute, receiving a heavy cut to their arm instead. The mage retaliates, throwing the reaper across the room with a fireball. It lurches back to its feet, now charred. DEALT: MEDIUM, RECEIVED: HIGH
-       Using the format from the examples, run a combat scenario with a {eStatus} enemy {enemy.name}, with the description {enemy.description}, attacking a {pStatus} player {player.name}, with the description {player.get_desc()}.'''
+       Using the format from the examples, run a combat scenario with a {eStatus} enemy {enemy.name}, with the description {enemy.get_desc()}, attacking a {pStatus} player {player.name}, with the description {player.get_desc()}.'''
 
     return get_response(prompt_str)
 
@@ -167,9 +167,11 @@ def combat_state_update_necro(player, enemy, pStatus = "HEALTHY", eStatus = "HEA
        Status: HEALTHY
        Enemy description: A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.
        Output: The mage shoots a fireball at the greater necromancer, but his wounds affect its strength. The necromancer diverts the blast with a barrier, receiving minimal damage. The necromancer retaliates with a wave of dark energy, which the mage also blocks. It then summons a wave of undead warriors. DEALT: LOW, RECEIVED: LOW
-       Using the format from the examples, run a combat scenario with the {pStatus} player {player.name}, with the description {player.get_desc()}, attacking a {eStatus} enemy {enemy.name}, with the description {enemy.description}.'''
+       Using the format from the examples, run a combat scenario with the {pStatus} player {player.name}, with the description {player.get_desc()}, attacking a {eStatus} enemy {enemy.name}, with the description {enemy.get_desc()}.'''
 
     return get_response(prompt_str)
+
+#======================================= summoning/reinforcement ========================================================
 
 def enemy_summon_count(scenario):
     scenario = scenario.split("DEALT")[0]
@@ -260,3 +262,156 @@ def enemy_generator(scenario, enemy_count, sprites):
     return enemy1, enemy2, enemy3
   else:
     return enemy1, enemy2, 0
+  
+#===================================================== item gen =============================
+def drop_item_update(dropchance):
+   prompt_str = f"""the scenario is an enemy has just died. You must decide whether it drops something.
+   a dropchance will be given and effect how likely something will drop.
+   it will go from 0 (very unlikely), 1 (unlikely), 2 (50/50), 4 (likely), 5(very likely)
+   you do not have to say what it drops just if it did. no for did not drop. yes for did drop.
+   Output NOTHING except the one field
+   
+   Example output: 
+   Drop: no
+
+   here is the Count: {dropchance}
+   """
+   return get_response(prompt_str)
+
+def item_spawn_update(enemy):
+    prompt_str = f"""the scenario is an enemy has just died and it dropped something.
+    You must decide what it is. then if it is a Weapon or Item.
+    
+    Rules:
+    Only one drop maximum
+    A Weapon is something that can be reused over and over e.g. sword
+    if a Weapon it its self has to be the thing used e.g a bow is a Weapon but not arrows
+    A Item is something that can be used once e.g. healing potion
+    If an Item it cannot summon/make new thing
+    Output NOTHING except the three fields
+    
+    Examples:
+    Input:
+    Enemy: Skeleton: A weak, unarmed, and unarmored warrior made entirely of brittle bones.
+    Output:
+    Drops: Sharp Bone
+    Description: A sharp bone that can be used as a weapon if needed
+    Type: Weapon
+    2
+    Input:
+    Enemy: Goblin: A small, cunning creature with sharp ears and leather armor.
+    Output:
+    Drops: Small Healing Potion
+    Description: A vial holding some healing liquid
+    Type: Item
+    
+    Using the format from the examples, run a scenario with this enemy: {enemy.name} and the following description: {enemy.description}.'''
+    """
+    return get_response(prompt_str)
+
+def parse_item(item_string):
+   Item = item_string.split("Drops: ")[1].split("Description:")[0].strip()
+   Description = item_string.split("Description: ")[1].split("Type:")[0].strip()
+   Type = item_string.split("Type: ")[1].strip()
+   item_and_description = (Item, Description)
+   #print(item_and_description, Type)
+   return item_and_description, Type
+
+def parse_drop(diditdrop_string):
+   diditdrop = diditdrop_string.split("Drop: ")[1].strip()
+   return diditdrop.lower()
+
+def gen_item(enemy,player,count):
+    print(count)
+    diditdrop_string = drop_item_update(count)
+    diditdrop = parse_drop(diditdrop_string)
+    print(diditdrop_string)
+    print(diditdrop)
+
+    if diditdrop == "no":
+        return "N","N"
+    
+    item_string = item_spawn_update(enemy)
+    print(item_string)
+    item_and_description, Type = parse_item(item_string)
+    print(item_and_description)
+
+    if Type.lower() == "weapon":
+        player.weapons.append(item_and_description)
+    else:
+        player.items.append(item_and_description)
+    
+    return item_and_description, Type
+
+#===================================== item use ========================================================
+def item_target_update(item_and_description):
+    prompt_str = f'''Given an item with this a description determine whether the item should:
+    
+    target the player as a beneficial effect (healing, buff, support), or
+    target an enemy as a harmful effect (damage, debuff, negative status).
+    
+    Then choose exactly one stat for the item to modify from the following list:
+    1. description: use when the effect cannot be represented by the other stats e.g. buffs, debuffs
+    2. max_hp: maximum health points
+    3. hp: current health points
+
+    Examples:
+    Input:
+    Small Healing Potion: A vial holding some healing liquid
+    Output:
+    Target: Player
+    Stat: hp
+
+    Input:
+    four leaf clove: it might give you some luck
+    Output:
+    Target: Player
+    Stat: description
+
+    Input:
+    throwing knife: a small knife that can be thrown
+    Output:
+    Target: Enemy
+    Stat: hp
+    Using the format from the examples, run a scenario with this Item: {item_and_description[0]} and the following description: {item_and_description[1]}.
+    '''
+    return get_response(prompt_str)
+
+def target_parse(target_string):
+   stat = target_string.split("Target: ")[1].split("Stat: ")[0].strip()
+   target = target_string.split("Stat: ")[1].strip()
+   return target,stat
+
+def use_item(item_and_description,enemies,player):
+    target_string = item_target_update(item_and_description)
+    target,stat = target_parse(target_string)
+
+    if target.lower() == "enemy": # item will effect enemy
+        inrange = []
+        range = 1
+        for e in enemies:
+            if abs(e.pos[0] - player.pos[0] <= range) and abs(e.pos[1] - player.pos[1] <= range):
+                inrange.append(e)
+
+        if inrange:
+            target_enemy = inrange.pop()
+            if stat.lower() == "description":
+                #debuff_string = debuff_update(target_enemy,item_and_description)
+                #debuff = parse_debuff(debuff_string)
+                target_enemy.current_effects.append()
+            else: # hp stat
+               print("TODO")
+        else: # not inrange
+           print("TODO")
+    
+    else: # item will effect player
+        if stat.lower() == "description":
+            #buff_string = buff_update(target_enemy,item_and_description)
+            #buff = parse_buff(debuff_string)
+            target_enemy.current_effects.append()
+          
+               
+
+      
+
+
