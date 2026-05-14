@@ -1,5 +1,6 @@
 import pygame, csv, os
 from spritesheet import Spritesheet
+from consts import *
 
 class Tile(pygame.sprite.Sprite):
     def __init__(self, image, x, y):
@@ -13,10 +14,8 @@ class Tile(pygame.sprite.Sprite):
 
 class TileMap():
     def __init__(self, filename, spritesheet):
-        self.tile_size = 16
         self.start_x, self.start_y = 0, 0
-        self.spritesheet = spritesheet
-        #self.tiles = self.load_tiles(filename)
+        self.load_tiles(filename,spritesheet)
         # width of entire game map and height of entire game map
         #self.map_surface = pygame.Surface((self.map_w, self.map_h))
         #self.map_surface.set_colorkey((0,0,0))
@@ -38,10 +37,11 @@ class TileMap():
 
     def load_tiles(self, filename, spritesheet):
         # CURRENTLY ONLY PROPERLY STORING FIRST ROW OF TILES
-        tiles = []
+        self.tiles = []
+        self.max_x = 0
+        self.max_y = 0
         map = self.read_csv(filename)
         x, y, = 0, 0
-        collision = False
         # WIP collision tile list
         # Currently includes all standard wall tiles
         collision_list = [0, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 35, 40, 41, 42, 43, 44, 45, 50, 51, 52, 53, 54, 55, 78]
@@ -53,22 +53,28 @@ class TileMap():
                 # Checking row
                 #multiplier = int(tile/10)
                 # picking out x and y coordinates of tile on tileset
-                tile_x = (tile % 10) * 16
-                tile_y = (int(tile / 10)) * 16
+                tile_x = (tile % 10) * TILE_SIZE
+                tile_y = (int(tile / 10)) * TILE_SIZE
                 # designating the tile's location on screen
-                screen_x = x * 16
-                screen_y = y * 16
+                screen_x = x * TILE_SIZE
+                screen_y = y * TILE_SIZE
+                if screen_x > self.max_x:
+                    self.max_x = screen_x
+                if screen_y > self.max_y:
+                    self.max_y = screen_y
                 # for index in collision, if tile == index, prevent movement (unimplemented)
-                if tile in collision_list:
-                    collision = True
+                collision = tile in collision_list
                 # tuple of sprite, x coordinate, y coordinate, and whether the sprite has collision
-                new_tile = (spritesheet.get_sprite(tile_x, tile_y, 16, 16), screen_x, screen_y, collision)
-                tiles.append(new_tile)
-                collision = False
+                new_tile = (spritesheet.get_sprite(tile_x, tile_y, TILE_SIZE, TILE_SIZE), screen_x, screen_y, collision)
+                self.tiles.append(new_tile)
                 # next tile in current row
                 x += 1
             # next row
             y += 1
-        return tiles
+        self.max_x += TILE_SIZE
+        self.max_y += TILE_SIZE
+    
+    def get_tiles(self):
+        return self.tiles, self.max_x, self.max_y
 
     # Check 7:00 of tilemap tutorial for alternate load_tiles function

@@ -1,5 +1,6 @@
 import pygame
 from math import floor
+from consts import *
 
 #HELPERS
 
@@ -44,11 +45,10 @@ def draw_text_on_surf(surf, lines, font, center=False, color=(255,255,255)):
     surf.blit(sub_surf, (sub_x, sub_y))
 
 class TextBox:
-    def __init__(self, font, text_corner, text_rect, text_color, bg_color):
+    def __init__(self, font, text_rect, text_color, bg_color):
         self.clear()
         self.font = font
         self.x_delta, self.y_delta = font.size("M")
-        self.corner = text_corner
         self.update_rect(text_rect)
         self.text_color = text_color
         self.bg_color = bg_color
@@ -94,7 +94,11 @@ class TextBox:
         if pos:
             screen.blit(self.surface, pos)
         else:
-            screen.blit(self.surface, self.corner)
+            x = SCREEN_WIDTH - self.surface.get_width()
+            y = SCREEN_HEIGHT - self.surface.get_height()
+            if y < 0:
+                y = 0
+            screen.blit(self.surface, (x,y))
             
 #title in string, entries is list of (name, desc) tuples
 #returns two things:
