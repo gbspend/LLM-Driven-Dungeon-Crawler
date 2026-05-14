@@ -150,7 +150,7 @@ class TileMap():
             self.bg.blit(surf,(x,y))
         #just for fun :)
         carpet_surf = pygame.image.load("carpet2.png").convert_alpha()
-        carpet_surf.set_alpha(200)
+        carpet_surf.set_alpha(150)
         self.bg.blit(carpet_surf,(160-16-(16*3),160+(16*3)+8))
             
         roof_mask = pygame.mask.from_threshold(self.bg, roof_color,(1, 1, 1, 255))

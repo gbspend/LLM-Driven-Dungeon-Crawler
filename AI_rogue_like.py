@@ -352,8 +352,9 @@ if __name__ == "__main__":
                     # Skip turn
                     elif event.key == pygame.K_SPACE:
                         roguelike.state_update("SKIP")
-                    
+        
         mouse_pos = pygame.mouse.get_pos()
+        game_mouse_pos = [v//GAME_SCALE for v in mouse_pos]
         
         #--RENDER & UPDATE------------------------------
         tilemap.update()
@@ -379,7 +380,7 @@ if __name__ == "__main__":
         if state == GameState.RUN:
             for enemy in enemies:
                 enemy_rect = enemy.get_rect()
-                if enemy_rect.collidepoint(mouse_pos):
+                if enemy_rect.collidepoint(game_mouse_pos):
                     if enemy != last_enemy:
                         last_enemy = enemy
                         tooltip.clear()
