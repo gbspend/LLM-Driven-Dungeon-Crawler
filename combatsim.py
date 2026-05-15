@@ -10,33 +10,35 @@ def runCombat(player, enemy, verb=False):
     return parse_damage(instructions, False)
 
 def vsWeak():
-    player = Character('Knight', 'A knight',25, 25, 5, None, None)
+    player = Character('Knight', 'A knight', 25, None, None, None)
     enemy = Enemy('Goblin', 'A weak, pathetic goblin', 5, 5, 1, None, None)
     return runCombat(player, enemy)
 
 def vsStrong():
-    player = Character('Knight', 'A knight',25, 25, 5, None, None)
+    player = Character('Knight', 'A knight', 25, None, None, None)
     enemy = Enemy('Stone Golem', 'A huge, indestructible granite construct.', 100, 100, 20, None, None)
     return runCombat(player, enemy)
 
 def woundedVsGob():
-    player = Character('Knight', 'A knight',25, 13, 5, None, None)
+    player = Character('Knight', 'A knight', 25, None, None, None)
+    player.hp = 13
     enemy = Enemy('Goblin', 'A small but fierce goblin warrior', 5, 5, 1, None, None)
     return runCombat(player, enemy)
 
 def maimedVsGob():
-    player = Character('Knight', 'A knight',25, 1, 5, None, None)
+    player = Character('Knight', 'A knight', 25, None, None, None)
+    player.hp = 1
     enemy = Enemy('Goblin', 'A small but fierce goblin warrior', 5, 5, 1, None, None)
     return runCombat(player, enemy)
     
 def knifeVsGob():
-    player = Character('Knight', 'A knight',25, 25, 5, None, None)
+    player = Character('Knight', 'A knight', 25, None, None, None)
     player.weapon_id = 0
     enemy = Enemy('Goblin', 'A small but fierce goblin warrior', 5, 5, 1, None, None)
     return runCombat(player, enemy, False)
 
 def slayerVsGob():
-    player = Character('Knight', 'A knight',25, 25, 5, None, None)
+    player = Character('Knight', 'A knight', 25, None, None, None)
     player.weapon_id = 2
     enemy = Enemy('Goblin', 'A small but fierce goblin warrior', 5, 5, 1, None, None)
     return runCombat(player, enemy, False)
@@ -159,3 +161,4 @@ LOW:    0       10
 MEDIUM: 8       0
 HIGH:   2       0
 FATAL:  0       0
+'''

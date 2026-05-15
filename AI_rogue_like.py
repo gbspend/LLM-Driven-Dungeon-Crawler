@@ -11,6 +11,7 @@ from enum import Enum
 class GameState(Enum):
     RUN = 1
     INV = 2
+    GAMEOVER = 3
 
 def parse_damage(combat, verb=True):
     # retrieving damage dealt and received values from API
@@ -124,6 +125,8 @@ class rogue_like:
             self.dropchance += 1
 
     def state_update(self, order):
+        if player.hp <= 0: #avoids processing reinforcements after game over
+            return
         # order is tuple with parameters: action, target, amount
         # Skip turn
         if order == "SKIP" or order[0] == "ITEM":
@@ -165,7 +168,7 @@ class rogue_like:
                                 enemy_number = api_call.enemy_summon_count(instructions)
                                 enemy_number = int(enemy_number.split("Enemies: ")[1])
                                 if enemy_number != 0:
-                                    e1, e2, e3 = api_call.enemy_generator(instructions, self.re_sprites) # this will crash the game (missing parameter)
+                                    e1, e2, e3 = api_call.enemy_generator(instructions, enemy_number, self.re_sprites) # this will crash the game (missing parameter)
                                     self.state_update(("NECRO", e1, e2, e3))
                             # Bias towards player seems to be present in scenarios where the enemy attacks first.
                             # Experiment with prompt.
@@ -176,6 +179,8 @@ class rogue_like:
                                 self.item_spawn(enemy)
 
                             if player.hp <= 0:
+                                state = GameState.GAMEOVER
+                                player.dead = True
                                 textBox.add('GAME OVER.')
 
         elif order[0] == "ATK":
@@ -239,9 +244,9 @@ if __name__ == "__main__":
     black = (0, 0, 0)
 
     # Text setup
-    base_font = pygame.font.SysFont('Georgia', 16)
-    text_font = pygame.font.SysFont('Georgia', 17)
-    title_font = pygame.font.SysFont('Georgia', 18, bold=True)
+    base_font = pygame.font.Font("Book.ttf", 17)
+    text_font = pygame.font.Font("Book.ttf", 18)
+    title_font = pygame.font.Font("Book.ttf", 20)
     textBox = TextBox(text_font,pygame.Rect(0,0, TEXT_WIDTH, SCREEN_HEIGHT),white, black)
 
     # Spritesheet
@@ -249,7 +254,7 @@ if __name__ == "__main__":
     char_spritesheet = Spritesheet('Dungeon_character.png')
 
     # Loading map tile
-    tilemap = TileMap('test_tile2.csv', tile_spritesheet)
+    tilemap = TileMap('test_tile2.csv', tile_spritesheet, 'objs2.csv')
     tiles_list,map_width,map_height = tilemap.get_tiles()
     
     collision_list = []
@@ -262,18 +267,19 @@ if __name__ == "__main__":
 
     # 16x16 sprites: adjust each coordinate by 16 to swap sprite
     default_pos = (0, 0)
-    knight_1 = char_spritesheet.get_sprite_pair(0,32,16,16)
-    knight_e = char_spritesheet.get_sprite_pair(80,32,16,16)
-    skel_g = char_spritesheet.get_sprite_pair(64,48,16,16)
-    skel_r = char_spritesheet.get_sprite_pair(96,48,16,16)
-    necro_l = char_spritesheet.get_sprite_pair(32,48,16,16)
-    necro_g = char_spritesheet.get_sprite_pair(48,48,16,16)
-    spirit_g = char_spritesheet.get_sprite_pair(16,48,16,16)
+    knight_1 = char_spritesheet.get_sprite_pair(0,32)
+    knight_e = char_spritesheet.get_sprite_pair(80,32)
+    skel_g = char_spritesheet.get_sprite_pair(64,48)
+    skel_r = char_spritesheet.get_sprite_pair(96,48)
+    necro_l = char_spritesheet.get_sprite_pair(32,48)
+    necro_g = char_spritesheet.get_sprite_pair(48,48)
+    spirit_g = char_spritesheet.get_sprite_pair(16,48)
     # sprite list for random enemy spawns
     sprites = {"Knight": knight_e, "Spirit": spirit_g, "Vampire": necro_l, "Knife Skeleton": skel_g, "Scythe Skeleton": skel_r}
 
 
-    knight = Character('Knight', 'A knight',25, 25, 5, default_pos, knight_1)
+    dead_sprite = tile_spritesheet.get_sprite_rc(9,6)
+    knight = Character('Knight', 'A knight', 25, default_pos, knight_1, dead_sprite)
     skel_knife = Enemy('Skeleton Grunt', 'A weak skeleton, armed with a knife.',10, 10, 2, default_pos, skel_g)
     skel_knife2 = Enemy('Skeleton Grunt', 'A weak skeleton, armed with a knife.',10, 10, 2, default_pos, skel_g)
     skel_scy = Enemy('Reaper', 'The skeleton of a strong warrior, armed with a scythe.', 15, 15, 4, default_pos, skel_r)
@@ -323,6 +329,10 @@ if __name__ == "__main__":
     textBox.add("w - up, s - down, a - left, d - right")
     textBox.add("space - skip turn, i - inventory")
     while running:
+        if player.hp <= 0:
+            player.dead = True
+            state = GameState.GAMEOVER
+        
         #--INPUT----------------------------------------
         mouse_click = False
         for event in pygame.event.get():
@@ -335,7 +345,7 @@ if __name__ == "__main__":
                     if state == GameState.RUN:
                         state = GameState.INV
                         inv.prep(player)
-                    else:
+                    elif state == GameState.INV:
                         state = GameState.RUN
                 
                 if state == GameState.RUN:
@@ -365,8 +375,12 @@ if __name__ == "__main__":
         # Render text to screen
         textBox.render(screen)
         
-        game_surf = pygame.Surface((map_width,map_height), pygame.SRCALPHA)
+        hp_panel = player.get_hp_panel()
+        hp_h = hp_panel.get_height()
+        
+        game_surf = pygame.Surface((map_width,map_height+hp_h), pygame.SRCALPHA)
         tilemap.draw(game_surf)
+        game_surf.blit(hp_panel,(0,game_surf.get_height()-hp_h))
 
         # Add sprite to screen
         player.draw(game_surf)
@@ -404,7 +418,7 @@ if __name__ == "__main__":
                     state = GameState.RUN
                     roguelike.state_update(("ITEM", i))
             inv.draw(screen)
-
+        
         # Update the display
         pygame.display.flip()
         clock.tick(30)

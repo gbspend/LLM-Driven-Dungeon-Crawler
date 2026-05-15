@@ -55,9 +55,9 @@ def seq2XY(i):
     return x,y
 
 class TileMap():
-    def __init__(self, filename, spritesheet):
+    def __init__(self, grid_fname, spritesheet,obj_fname=None):
         self.start_x, self.start_y = 0, 0
-        self.load_tiles(filename,spritesheet)
+        self.load_tiles(grid_fname,spritesheet,obj_fname)
         # width of entire game map and height of entire game map
         #self.map_surface = pygame.Surface((self.map_w, self.map_h))
         #self.map_surface.set_colorkey((0,0,0))
@@ -79,19 +79,22 @@ class TileMap():
             o.draw(screen)
         screen.blit(self.roof,(0,0))
 
-    def load_tiles(self, filename, spritesheet):
+    def load_tiles(self, grid_fname, spritesheet, obj_fname=None):
         # CURRENTLY ONLY PROPERLY STORING FIRST ROW OF TILES
         self.tiles = []
         decos = []
         self.objs = []
         self.max_x = 0
         self.max_y = 0
-        grid = read_csv(filename)
-        objs = read_csv("objs2.csv")
-        fire = Spritesheet("fire.png")
-        obj_anims = {}
-        obj_anims["T"] = [fire.get_sprite_rc(3,c,TILE_SIZE,TILE_SIZE) for c in range(4)]
-        obj_anims["C"] = [fire.get_sprite_rc(1,c,TILE_SIZE,TILE_SIZE) for c in range(1,4)]
+        grid = read_csv(grid_fname)
+        
+        if obj_fname:
+            obj_grid = read_csv(obj_fname)
+            fire = Spritesheet("fire.png")
+            obj_anims = {}
+            obj_anims["T"] = [fire.get_sprite_rc(3,c) for c in range(4)]
+            obj_anims["C"] = [fire.get_sprite_rc(1,c) for c in range(1,4)]
+        
         x, y, = 0, 0
         # WIP collision tile list
         # Currently includes all standard wall tiles
@@ -118,8 +121,8 @@ class TileMap():
                 collision = tile in collision_list
                 
                 #check for object
-                if r < len(objs) and c < len(objs[r]) and objs[r][c]:
-                    entry = objs[r][c]
+                if obj_fname and r < len(obj_grid) and c < len(obj_grid[r]) and obj_grid[r][c]:
+                    entry = obj_grid[r][c]
                     try:
                         i = int(entry)
                         decos.append((i,screen_x,screen_y))
@@ -129,7 +132,7 @@ class TileMap():
                         self.objs.append(Object(obj_anims[entry],screen_x,screen_y))
                 
                 # tuple of sprite, x coordinate, y coordinate, and whether the sprite has collision
-                new_tile = (spritesheet.get_sprite(tile_x, tile_y, TILE_SIZE, TILE_SIZE), screen_x, screen_y, collision)
+                new_tile = (spritesheet.get_sprite(tile_x, tile_y), screen_x, screen_y, collision)
                 self.tiles.append(new_tile)
                 # next tile in current row
                 x += 1
@@ -146,7 +149,7 @@ class TileMap():
             self.bg.blit(tile[0], (tile[1], tile[2]))
         for i,x,y in decos:
             tile_x,tile_y = seq2XY(i)
-            surf = spritesheet.get_sprite(tile_x, tile_y, TILE_SIZE, TILE_SIZE)
+            surf = spritesheet.get_sprite(tile_x, tile_y)
             self.bg.blit(surf,(x,y))
         #just for fun :)
         carpet_surf = pygame.image.load("carpet2.png").convert_alpha()
