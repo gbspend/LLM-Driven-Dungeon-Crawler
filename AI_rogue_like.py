@@ -96,19 +96,19 @@ class rogue_like:
         combat_enemy.hp -= dmg
         self.player.hp -= rec
         if dealt != "NONE":
-            self.textBox.add(f'You attacked the {combat_enemy.name} for {dmg} damage.')
+            print(f'You attacked the {combat_enemy.name} for {dmg} damage.')
         else:
-            self.textBox.add(f'You missed the {combat_enemy.name}.')
+            print(f'You missed the {combat_enemy.name}.')
         if combat_enemy.hp > 0:
-            self.textBox.add(f'It has {combat_enemy.hp} HP remaining.')
+            print(f'It has {combat_enemy.hp} HP remaining.')
         if rec != "NONE":
-            self.textBox.add(f'You received {rec} damage.')
+            print(f'You received {rec} damage.')
         else:
-            self.textBox.add(f'You avoided the {combat_enemy.name}\'s attack.')
+            print(f'You avoided the {combat_enemy.name}\'s attack.')
         if self.player.hp > 0:
-            self.textBox.add(f'You have {self.player.hp} HP remaining.')
+            print(f'You have {self.player.hp} HP remaining.')
         if combat_enemy.hp <= 0:
-            self.textBox.add(f'You defeated the {combat_enemy.name}.')
+            print(f'You defeated the {combat_enemy.name}.')
             self.enemies.remove(combat_enemy)
             return True
 
@@ -117,7 +117,7 @@ class rogue_like:
     def item_spawn(self,enemy):
         new_item, new_item_Type = api_call.gen_item(enemy,self.player,self.dropchance)
         if new_item != "N":
-            textBox.add(("you got a new " + new_item_Type))
+            textBox.add("you got a new " + new_item_Type)
             textBox.add(new_item[0])
             textBox.add(new_item[1])
             self.dropchance =0
@@ -177,11 +177,6 @@ class rogue_like:
                             if EnemyDie:
                                 # TODO
                                 self.item_spawn(enemy)
-
-                            if player.hp <= 0:
-                                state = GameState.GAMEOVER
-                                player.dead = True
-                                textBox.add('GAME OVER.')
 
         elif order[0] == "ATK":
             # Rename attack command?
@@ -326,8 +321,6 @@ if __name__ == "__main__":
     shade_surf.set_alpha(160)
     inv = Inventory(SCREEN_WIDTH, SCREEN_HEIGHT, base_font, title_font)
 
-    textBox.add("w - up, s - down, a - left, d - right")
-    textBox.add("space - skip turn, i - inventory")
     while running:
         if player.hp <= 0:
             player.dead = True
@@ -362,6 +355,8 @@ if __name__ == "__main__":
                     # Skip turn
                     elif event.key == pygame.K_SPACE:
                         roguelike.state_update("SKIP")
+                    elif event.key == pygame.K_l:
+                        textBox.add("asdkfjhaslkdfj asjlkdfh lkajsdhf lkjashdf kjahsdf jkashdf kj hasd flkj hasdflkjh aslkdjfh alksjf asdf")
         
         mouse_pos = pygame.mouse.get_pos()
         game_mouse_pos = [v//GAME_SCALE for v in mouse_pos]

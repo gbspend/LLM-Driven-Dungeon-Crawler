@@ -30,16 +30,6 @@ class Object:
         screen.blit(light,l_rect.topleft)
         screen.blit(self.anims[self.f],self.pos)
 
-class Tile(pygame.sprite.Sprite):
-    def __init__(self, image, x, y):
-        pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.image.load(image)
-        self.rect = self.image.get_rect()
-        self.rect.x, self.rect.y = x, y
-
-    def draw(self, surface):
-        surface.blit(self.image, (self.rect.x, self.rect.y))
-
 def read_csv(filename):
     grid = []
     with open(os.path.join(filename)) as data:
@@ -54,7 +44,7 @@ def seq2XY(i):
     y = (int(i / 10)) * TILE_SIZE
     return x,y
 
-class TileMap():
+class TileMap:
     def __init__(self, grid_fname, spritesheet,obj_fname=None):
         self.start_x, self.start_y = 0, 0
         self.load_tiles(grid_fname,spritesheet,obj_fname)
@@ -62,13 +52,6 @@ class TileMap():
         #self.map_surface = pygame.Surface((self.map_w, self.map_h))
         #self.map_surface.set_colorkey((0,0,0))
 
-    def draw_map(self, surface):
-        surface.blit(self.map_surface, (self.start_x, self.start_y))
-
-    def load_map(self):
-        for tile in self.tiles:
-            tile.draw(self.map_surface)
-    
     def update(self):
         for o in self.objs:
             o.update()
@@ -154,7 +137,7 @@ class TileMap():
         #just for fun :)
         carpet_surf = pygame.image.load("carpet2.png").convert_alpha()
         carpet_surf.set_alpha(150)
-        self.bg.blit(carpet_surf,(160-16-(16*3),160+(16*3)+8))
+        self.bg.blit(carpet_surf,(96,216))
             
         roof_mask = pygame.mask.from_threshold(self.bg, roof_color,(1, 1, 1, 255))
         self.roof = roof_mask.to_surface(setcolor=roof_color,unsetcolor=None)

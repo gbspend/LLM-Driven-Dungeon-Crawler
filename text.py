@@ -65,7 +65,7 @@ class TextBox:
     
     def add(self, msg):
         self.changed = True
-        self.text += fit_line_in_width(msg, self.size[0], self.font, self.text_color)
+        self.text += fit_line_in_width(msg, self.size[0], self.font, self.text_color) + [" "]
 
     def resize_to_text(self):
         self.changed = True
@@ -94,7 +94,7 @@ class TextBox:
         if pos:
             screen.blit(self.surface, pos)
         else:
-            x = SCREEN_WIDTH - self.surface.get_width()
+            x = SCREEN_WIDTH - self.surface.get_width() - 15
             y = SCREEN_HEIGHT - self.surface.get_height()
             if y < 0:
                 y = 0

@@ -1,7 +1,3 @@
-import pygame
-from spritesheet import Spritesheet
-from characters import Character
-from characters import Enemy
 from groq import Groq
 from secret import KEY
 

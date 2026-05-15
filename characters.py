@@ -2,7 +2,7 @@ import pygame
 import random
 from consts import *
 
-class Character():
+class Character:
     def __init__(self, name, description, max_hp, pos, sprites, dead_sprite):
         self.name = name
         self.description = description
@@ -136,6 +136,7 @@ class Character():
             self.health_panel.set_at((x,y), BORDER1)
 
         # text
+        sm_font = pygame.font.Font("Book.ttf", 10)
         font = pygame.font.Font("Book.ttf", 16)
         big_font = pygame.font.Font("Book.ttf", 19)
         label = font.render("Health", False, TEXT)
@@ -155,16 +156,25 @@ class Character():
                              (bx+1, by+1),
                              (bx+fill_w, by+1))
         
+        right_rect = pygame.Rect((WIDTH//2, 0),(WIDTH//2-bx, HEIGHT))
         if self.dead:
-            dead_label = big_font.render("GAME OVER!", False, TEXT)
-            dead_rect = dead_label.get_rect()
-            right_rect = pygame.Rect((WIDTH//2, 0),(WIDTH//2-bx, HEIGHT))
-            dead_rect.center = right_rect.center
-            self.health_panel.blit(dead_label, dead_rect.topleft)
+            other_label = big_font.render("GAME OVER!", False, TEXT)
+        else:
+            line1 = sm_font.render("WASD - move",False,TEXT)
+            line2 = sm_font.render("Space - skip turn, I - inventory",False,TEXT)
+            other_label = pygame.Surface(
+                (max(line1.get_width(),line2.get_width()),line1.get_height()+line2.get_height()),
+                pygame.SRCALPHA
+            )
+            other_label.blit(line1,(0,0))
+            other_label.blit(line2,(0,line1.get_height()))
+        other_rect = other_label.get_rect()
+        other_rect.center = right_rect.center
+        self.health_panel.blit(other_label, other_rect.topleft)
         
         return self.health_panel
 
-class Enemy():
+class Enemy:
     def __init__(self, name, description, max_hp, hp, atk, pos, sprites):
         self.name = name
         self.description = description

@@ -1,7 +1,7 @@
 import pygame
 from consts import TILE_SIZE
 
-class Spritesheet():
+class Spritesheet:
     def __init__(self, filename, w=TILE_SIZE, h=TILE_SIZE):
         self.filename = filename
         self.sprite_sheet = pygame.image.load(filename).convert()
