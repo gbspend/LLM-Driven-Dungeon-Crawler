@@ -45,14 +45,16 @@ def draw_text_on_surf(surf, lines, font, center=False, color=(255,255,255)):
     surf.blit(sub_surf, (sub_x, sub_y))
 
 class TextBox:
-    def __init__(self, font, text_rect, text_color, bg_color):
+    def __init__(self, font, text_rect, text_color, bg_color, pos=None, center=False):
         self.clear()
         self.font = font
         self.x_delta, self.y_delta = font.size("M")
+        self.center = center
+        self.last_y = None #how far up the Surface the text ended up
         self.update_rect(text_rect)
         self.text_color = text_color
         self.bg_color = bg_color
-        self.debug = False
+        self.pos = pos
 
     def update_rect(self, text_rect):
         self.rect = text_rect
@@ -73,7 +75,7 @@ class TextBox:
         new_rect = pygame.Rect(0,0,self.size[0], new_height)
         self.update_rect(new_rect)
         
-    def render(self, screen, pos = None):
+    def render(self, screen, force_pos = None):
         if self.changed:
             #re-render
             self.surface.fill(self.bg_color)
@@ -87,18 +89,22 @@ class TextBox:
                 text_index -= 1
                 if text_y <= 0:
                     break
-            if self.debug:
-                for line in self.text:
-                    print(line)
+            self.last_y = text_y
             self.changed = False
-        if pos:
-            screen.blit(self.surface, pos)
+            if self.center and self.last_y > 0:
+                surf_size = self.surface.get_size()
+                temp = pygame.Surface(surf_size)
+                temp.fill(self.bg_color)
+                area = pygame.Rect(0,self.last_y,self.size[0],self.size[1]-self.last_y)
+                t_rect = area.copy()
+                t_rect.center = self.surface.get_rect().center
+                temp.blit(self.surface,t_rect.topleft,area)
+                self.surface = temp
+        if force_pos:
+            screen.blit(self.surface, force_pos)
         else:
-            x = SCREEN_WIDTH - self.surface.get_width() - 15
-            y = SCREEN_HEIGHT - self.surface.get_height()
-            if y < 0:
-                y = 0
-            screen.blit(self.surface, (x,y))
+            assert self.pos is not None, "no textbox pos given in init or render"
+            screen.blit(self.surface, self.pos)
             
 #title in string, entries is list of (name, desc) tuples
 #returns two things:
@@ -171,13 +177,6 @@ class Inventory:
         
         self.surf.blit(e_surf,(0,0))
         self.surf.blit(i_surf,(half_w,0))            
-
-        #DEBUG
-        if False:
-            for r in self.equip_rects:
-                pygame.draw.rect(self.surf, (255,0,255), r, width=1)
-            for r in self.item_rects:
-                pygame.draw.rect(self.surf, (0,255,0), r, width=1)
     
     #returns tuple:(bool, index)
     #   bool is True for equipment, False for item

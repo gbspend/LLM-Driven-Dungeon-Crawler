@@ -7,6 +7,7 @@ from characters import Character, Enemy
 from tiles import TileMap
 from text import TextBox, Inventory
 from enum import Enum
+#from fight import FightPanel
 
 class GameState(Enum):
     RUN = 1
@@ -234,15 +235,13 @@ if __name__ == "__main__":
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("AI Roguelike")
 
-    # Colors
-    white = (255, 255, 255)
-    black = (0, 0, 0)
-
     # Text setup
     base_font = pygame.font.Font("Book.ttf", 17)
     text_font = pygame.font.Font("Book.ttf", 18)
     title_font = pygame.font.Font("Book.ttf", 20)
-    textBox = TextBox(text_font,pygame.Rect(0,0, TEXT_WIDTH, SCREEN_HEIGHT),white, black)
+    
+    text_pos = (SCREEN_WIDTH - TEXT_WIDTH - 15, 0)
+    textBox = TextBox(text_font,pygame.Rect(0,0, TEXT_WIDTH, SCREEN_HEIGHT), WHITE, BLACK, text_pos)
 
     # Spritesheet
     tile_spritesheet = Spritesheet('Dungeon_Tileset.png')
@@ -293,8 +292,12 @@ if __name__ == "__main__":
 
     roguelike = rogue_like(enemies, player, textBox, default_pos, fair_distance, collision_list, sprites)
 
-    tooltip = TextBox(base_font, pygame.Rect(0,0,TIP_WIDTH,TIP_HEIGHT), white, black)
+    tooltip = TextBox(base_font, pygame.Rect(0,0,TIP_WIDTH,TIP_HEIGHT), WHITE, BLACK)
     last_enemy = None
+    
+    #TEST
+    sk = pygame.transform.flip(skel_g[0],True,False)
+    fight_panel = None#FightPanel(knight_1[0], sk, (FIGHT_W,FIGHT_H),FIGHT_POS,base_font)
 
     # Game loop
     running = True
@@ -355,8 +358,14 @@ if __name__ == "__main__":
                     # Skip turn
                     elif event.key == pygame.K_SPACE:
                         roguelike.state_update("SKIP")
+                        
+                    #-- TEMP ----------------------------------
                     elif event.key == pygame.K_l:
                         textBox.add("asdkfjhaslkdfj asjlkdfh lkajsdhf lkjashdf kjahsdf jkashdf kj hasd flkj hasdflkjh aslkdjfh alksjf asdf")
+                    elif event.key == pygame.K_k and fight_panel:
+                        print("FP STOP")
+                        fight_panel.stop = True
+                    #------------------------------------------
         
         mouse_pos = pygame.mouse.get_pos()
         game_mouse_pos = [v//GAME_SCALE for v in mouse_pos]
@@ -364,8 +373,11 @@ if __name__ == "__main__":
         #--RENDER & UPDATE------------------------------
         tilemap.update()
         
+        if fight_panel:
+            fight_panel.update()
+        
         # Clear the screen
-        screen.fill(black)
+        screen.fill(BLACK)
         
         # Render text to screen
         textBox.render(screen)
@@ -384,12 +396,15 @@ if __name__ == "__main__":
         player_attack = False
         enemy_attack = False
         
+        if fight_panel:
+            fight_panel.render(game_surf)
+        
         screen.blit(pygame.transform.scale_by(game_surf,GAME_SCALE),(0,0))
         
         if state == GameState.RUN:
             for enemy in enemies:
                 enemy_rect = enemy.get_rect()
-                if enemy_rect.collidepoint(game_mouse_pos):
+                if enemy_rect.collidepoint(game_mouse_pos) and not fight_panel:
                     if enemy != last_enemy:
                         last_enemy = enemy
                         tooltip.clear()
@@ -413,6 +428,9 @@ if __name__ == "__main__":
                     state = GameState.RUN
                     roguelike.state_update(("ITEM", i))
             inv.draw(screen)
+        
+        if fight_panel:
+            fight_panel.draw_msg(screen)
         
         # Update the display
         pygame.display.flip()

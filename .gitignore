@@ -1,9 +1,10 @@
+secret.py
+fight_TEST.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-
-secret.py
 
 # C extensions
 *.so
