@@ -38,12 +38,16 @@ class Character:
             ("Shimmering Potion", "A small flask of bright iridescent liquid."),
             ("Singed Scroll","A scroll covered in ancient runes; the edges are charred."),
             ("Evil Wand","A heavy black rod that pulses with malevolent intent."),
+            ("stink bomb","stink bomb no damage")
         ]
     
     def get_desc(self):
         desc = self.description + ", armed with " + self.weapons[self.weapon_i][1]
         if self.current_effects:
-            desc = desc + (" with the current effects:",self.current_effects)
+            desc = desc + "with the current effects:"
+            for i in self.current_effects:
+                desc = desc + ", " + str(i)
+            self.current_effects = [] # only one round
         return desc
 
     # player spawn location
@@ -265,5 +269,7 @@ class Enemy:
     def get_desc(self):
         desc = self.description
         if self.current_effects:
-            desc = desc + (" with the current effects:",self.current_effects)
+            desc = desc + "with the current effects:"
+            for i in self.current_effects:
+                desc = desc + ", " + str(i)
         return desc

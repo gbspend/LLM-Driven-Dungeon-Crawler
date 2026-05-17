@@ -3,6 +3,7 @@ from characters import Character, Enemy
 from AI_rogue_like import parse_damage, hp_state
 import api_call
 from collections import defaultdict
+import json
 
 def runCombat(player, enemy, verb=False):
     pState, eState = hp_state(player, enemy)
@@ -70,10 +71,28 @@ if __name__ == "__main__":
     #print(vsStrong())
     
     N = 10
+    """
     tests = [vsWeak, vsStrong, woundedVsGob, maimedVsGob, knifeVsGob, slayerVsGob]
     
     for f in tests:
         runTest(f, N)
+    """
+    """
+    dropchance = 5
+    response = api_call.drop_item_update(dropchance)
+    print(response)
+    data = json.loads(response)
+    print(data)
+    if data["drop"] == "yes":
+        print("Item dropped!")
+    """
+    """
+    knight = 1
+    enemy = Enemy('Stone Golem', 'A huge, indestructible granite construct.', 100, 100, 20, None, None)
+    c = 4
+    for i in range(N):
+        api_call.gen_item(enemy,knight,c) # to use this test change api_call.gen_item so #player.....append(weapon_and_description)
+    """
 
 
 '''

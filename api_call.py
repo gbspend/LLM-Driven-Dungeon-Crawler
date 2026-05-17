@@ -1,4 +1,5 @@
 from groq import Groq
+import json
 from secret import KEY
 
 '''screen_width = 854
@@ -260,154 +261,340 @@ def enemy_generator(scenario, enemy_count, sprites):
     return enemy1, enemy2, 0
   
 #===================================================== item gen =============================
+
 def drop_item_update(dropchance):
    prompt_str = f"""the scenario is an enemy has just died. You must decide whether it drops something.
    a dropchance will be given and effect how likely something will drop.
    it will go from 0 (very unlikely), 1 (unlikely), 2 (50/50), 4 (likely), 5(very likely)
    you do not have to say what it drops just if it did. no for did not drop. yes for did drop.
-   Output NOTHING except the one field
+   Return ONLY valid JSON anything else will crash the game.
    
    Example output: 
-   Drop: no
+   {{
+    "drop": "yes"
+   }}
 
-   here is the Count: {dropchance}
+   here is the dropchance: {dropchance}
    """
    return get_response(prompt_str)
 
-def item_spawn_update(enemy):
-    prompt_str = f"""the scenario is an enemy has just died and it dropped something.
-    You must decide what it is. then if it is a Weapon or Item.
+
+def item_type_update(enemy):
+   prompt_str = f"""the scenario is an enemy has just died and it dropped something.
+   You must decide what it is, a Weapon or Item.
+   Return ONLY a valid JSON anything else will crash the game.
+
+   Examples:
+   Enemy: Skeleton: A weak, unarmed, and unarmored warrior made entirely of brittle bones.
+   output: 
+   {{
+    "type": "Weapon"
+   }}
+
+   Using the format from the examples, run a scenario with this enemy: {enemy.name} and the following description: {enemy.description}.
+   """
+   return get_response(prompt_str)
+   
+
+def item_spawn_item_update(enemy):
+    prompt_str = f"""the scenario is an enemy has just died and has dropped a Item.
+    You must decide what it is and then give it a description
     
     Rules:
-    Only one drop maximum
-    A Weapon is something that can be reused over and over e.g. sword
-    if a Weapon it its self has to be the thing used e.g a bow is a Weapon but not arrows
-    A Item is something that can be used once e.g. healing potion
-    If an Item it cannot summon/make new thing
-    Output NOTHING except the three fields
-    
-    Examples:
-    Input:
-    Enemy: Skeleton: A weak, unarmed, and unarmored warrior made entirely of brittle bones.
-    Output:
-    Drops: Sharp Bone
-    Description: A sharp bone that can be used as a weapon if needed
-    Type: Weapon
-    2
+    A Item is something that can be once e.g. Potion, throwing knife, firebomb
+    Return ONLY a valid JSON
+
     Input:
     Enemy: Goblin: A small, cunning creature with sharp ears and leather armor.
     Output:
-    Drops: Small Healing Potion
-    Description: A vial holding some healing liquid
-    Type: Item
+    {{
+    "drops": "Small Healing Potion",
+    "description": "A vial holding some healing liquid"
+    }}
     
     Using the format from the examples, run a scenario with this enemy: {enemy.name} and the following description: {enemy.description}.'''
     """
     return get_response(prompt_str)
 
-def parse_item(item_string):
-   Item = item_string.split("Drops: ")[1].split("Description:")[0].strip()
-   Description = item_string.split("Description: ")[1].split("Type:")[0].strip()
-   Type = item_string.split("Type: ")[1].strip()
-   item_and_description = (Item, Description)
-   #print(item_and_description, Type)
-   return item_and_description, Type
 
-def parse_drop(diditdrop_string):
-   diditdrop = diditdrop_string.split("Drop: ")[1].strip()
-   return diditdrop.lower()
+def item_spawn_weapon_update(enemy):
+    prompt_str = f"""the scenario is an enemy has just died and has dropped a weapon.
+    You must decide what it is and then give it a description
+    
+    Rules:
+    A Weapon is something that can be reused over and over e.g. sword, bow, staff
+    Return ONLY a valid JSON nothing more
+    
+    Examples:
+    Input:
+    Enemy: Skeleton: A weak, unarmed, and unarmored warrior made entirely of brittle bones.
+    Output:
+    {{
+    "drops": "Sharp Bone",
+    "description": "A sharp bone that can be used as a weapon if needed"
+    }}
 
-def gen_item(enemy,player,count):
+    Using the format from the examples, run a scenario with this enemy: {enemy.name} and the following description: {enemy.description}.'''
+    """
+    return get_response(prompt_str)
+
+
+def make(Type,FType,enemy,player):
+    weapon_string = FType(enemy)
+    print(weapon_string)
+    weapon = json.loads(weapon_string)
+    weapon_and_description = (weapon["drops"],weapon["description"])
+
+    if Type["type"].lower() == "weapon":
+       print(weapon_and_description, "\n end")
+       player.weapons.append(weapon_and_description)
+       return weapon_and_description
+    else:
+       print(weapon_and_description, "\n end")
+       player.items.append(weapon_and_description)
+       return weapon_and_description
+   
+def gen_item(enemy,player=0,count=4):
     print(count)
     diditdrop_string = drop_item_update(count)
-    diditdrop = parse_drop(diditdrop_string)
     print(diditdrop_string)
+    diditdrop = json.loads(diditdrop_string)
     print(diditdrop)
 
-    if diditdrop == "no":
+    if diditdrop["drop"].lower() == "no":
         return "N","N"
-    
-    item_string = item_spawn_update(enemy)
-    print(item_string)
-    item_and_description, Type = parse_item(item_string)
-    print(item_and_description)
+    Type_string = item_type_update(enemy)
+    print(Type_string)
+    Type = json.loads(Type_string)
 
-    if Type.lower() == "weapon":
-        player.weapons.append(item_and_description)
+    if Type["type"].lower() == "weapon":
+       wandd = make(Type,item_spawn_weapon_update,enemy,player)
+       return wandd, Type["type"]
     else:
-        player.items.append(item_and_description)
-    
-    return item_and_description, Type
+       iandd = make(Type,item_spawn_item_update,enemy,player)
+       return iandd, Type["type"]
 
 #===================================== item use ========================================================
-def item_target_update(item_and_description):
-    prompt_str = f'''Given an item with this a description determine whether the item should:
-    
+
+def item_picktarget_update(item_and_description):
+   prompt_str = f"""Given an item with this a description determine whether the item should:
     target the player as a beneficial effect (healing, buff, support), or
     target an enemy as a harmful effect (damage, debuff, negative status).
-    
-    Then choose exactly one stat for the item to modify from the following list:
-    1. description: use when the effect cannot be represented by the other stats e.g. buffs, debuffs
-    2. max_hp: maximum health points
-    3. hp: current health points
+    Return ONLY a valid JSON like the example
 
     Examples:
     Input:
     Small Healing Potion: A vial holding some healing liquid
     Output:
-    Target: Player
-    Stat: hp
+    {{
+    "Target": "Player"
+    }}
 
-    Input:
-    four leaf clove: it might give you some luck
-    Output:
-    Target: Player
-    Stat: description
-
-    Input:
-    throwing knife: a small knife that can be thrown
-    Output:
-    Target: Enemy
-    Stat: hp
     Using the format from the examples, run a scenario with this Item: {item_and_description[0]} and the following description: {item_and_description[1]}.
-    '''
+    """
+   return get_response(prompt_str)
+
+#-------------------------
+def item_enemystat_update(item_and_description):
+    prompt_str = f"""
+    An item has just been used by the player and will target an enemy.
+    Choose exactly ONE stat for the item to negatively affect from the following list:
+    
+    description = use when the effect cannot be represented by other stats e.g. hp
+    hp = current health points and direct damage
+    
+    Return ONLY a valid JSON like the example
+    
+    Examples:
+
+    Input:
+    Throwing Knife: A small knife that can be thrown
+    Output:
+    {{
+    "Stat": "hp"
+    }}
+    
+    Input:
+    Flash Bomb: A small explosive device that releases a blinding flash of light
+    Output:
+    {{
+    "Stat": "description"
+    }}
+    
+    Using the format from the examples, run a scenario with this Item: {item_and_description[0]} and the following description: {item_and_description[1]}.
+    """
     return get_response(prompt_str)
 
-def target_parse(target_string):
-   stat = target_string.split("Target: ")[1].split("Stat: ")[0].strip()
-   target = target_string.split("Stat: ")[1].strip()
-   return target,stat
 
+def item_playerstat_update(item_and_description):
+    prompt_str = f"""
+    An item has just been used by the player and will target the player.
+    Choose exactly ONE stat for the item to positively affect from the following list:
+
+    description = use when the effect cannot be represented by other stats e.g. hp
+    hp = current health points and healing
+
+    Return ONLY a valid JSON like the example
+
+    Examples:
+
+    Input:
+    Small Healing Potion: A vial holding healing liquid
+    Output:
+    {{
+    "Stat": "hp"
+    }}
+    
+    Input:
+    Iron Skin Potion: A potion that temporarily hardens the user's skin
+    Output:
+    {{
+    "Stat": "description"
+    }}
+    
+    Using the format from the examples, run a scenario with this Item: {item_and_description[0]} and the following description: {item_and_description[1]}.
+    """
+    return get_response(prompt_str)
+
+#-------------------------
+def item_enemy_descriptionstat_update(item_and_description,enemy):
+    prompt_str = fprompt_str = f"""
+    An item has just been used by the player and will target an enemy and change the enemy's description.
+    How you will do this:
+    
+    1. Describe how the effect looks on the enemy.
+    2. Give a short description of what the effect does such as defense down, blind, stunned, poisoned, burning, weakened, and so on.
+
+    
+    Return ONLY a valid JSON like the example
+    
+    Example:
+    
+    Input:
+    Flash Bomb: A small explosive device that releases a blinding flash of light
+    enemy: goblin
+    Output:
+    {{
+    "description": "The goblin covers its eyes as bright light burns its vision.",
+    "effect": "blinded"
+    }}
+    
+    Input:
+    Poison Dart: A small dart coated in deadly poison
+    enemy: zombie
+    Output:
+    {{
+    "description": "Dark veins spread across the zombie's body as poison weakens it.",
+    "effect": "poisoned"
+    }}
+    
+    Using the format from the examples, run a scenario with this Item: {item_and_description[0]} and the following description: {item_and_description[1]}.
+    and the enemy being targeted: {enemy.name}"""
+    return get_response(prompt_str)
+
+
+def item_player_descriptionstat_update(item_and_description, player):
+    prompt_str = f"""
+    An item has just been used by the player and will affect the player and change the player's description.
+    How you will do this:
+
+    1. Describe how the effect looks on the player.
+    2. Give a short description of what the effect does such as defense up, strengthened, energized, and so on. (note that this does not include healing)
+
+    Return ONLY a valid JSON like the example
+
+    Example:
+
+    Input:
+    iron Potion: A glowing red potion that makes skin hard as iron.
+    player: knight
+    Output:
+    {{
+        "description": "The knight's skin takes on a metallic sheen as their body hardens like iron.",
+        "effect": "defense up"
+    }}
+
+    Input:
+    four leaf clover: A rare four-leaf clover said to bring extraordinary luck to whoever carries it.
+    player: mage
+    Output:
+    {{
+        "description": "A soft green aura swirls around the mage as fate begins to favor their every move.",
+        "effect": "lucky"
+    }}
+
+    Using the format from the examples, run a scenario with this Item: {item_and_description[0]} and the following description: {item_and_description[1]}.
+    and the player being affected: {player.name}
+    """
+    
+    return get_response(prompt_str)
+
+#-------------------------
+def item_enemy_hpstat_update(item_and_description, enemy):
+    prompt_str = f"""
+    {{
+    "description": "",
+    "effect": ""
+    }}
+    
+    """
+    return get_response(prompt_str)
+
+def item_player_hpstat_update(item_and_description, enemy):
+    prompt_str = f"""
+    {{
+    "description": "",
+    "effect": ""
+    }}
+    
+    """
+    return get_response(prompt_str)
+
+def use_item_stat(item_and_description, target, stat_update,descriptionstat_update,hpstat_update=0):
+    stat_string = stat_update(item_and_description)
+    print(stat_string)
+    stat = json.loads(stat_string)["Stat"]
+
+    if stat.lower() == "description":
+        buff_string = descriptionstat_update(item_and_description,target)
+        buff = json.loads(buff_string)
+        dbuff = buff["description"]
+        ebuff = buff["effect"]
+        print(dbuff, ebuff)
+        target.current_effects.append(ebuff)
+        return dbuff, ebuff
+    else:
+       hp_string = hpstat_update(item_and_description,target)
+       hp = json.loads(hp_string)
+       dhp = hp["description"]
+       ehp = hp["effect"]
+       print(ehp,dhp)
+       return dhp, ehp
+         
+   
 def use_item(item_and_description,enemies,player):
-    target_string = item_target_update(item_and_description)
-    target,stat = target_parse(target_string)
+    target_string = item_picktarget_update(item_and_description)
+    print(target_string)
+    target = json.loads(target_string)["Target"]
+    print(target)
 
     if target.lower() == "enemy": # item will effect enemy
         inrange = []
-        range = 1
+        attack_range = 16
         for e in enemies:
-            if abs(e.pos[0] - player.pos[0] <= range) and abs(e.pos[1] - player.pos[1] <= range):
+            print(e.pos[0] - player.pos[0], end=",   ")
+            print(e.pos[1] - player.pos[1])
+            if (abs(e.pos[0] - player.pos[0]) <= attack_range) and (abs(e.pos[1] - player.pos[1]) <= attack_range):
                 inrange.append(e)
 
         if inrange:
             target_enemy = inrange.pop()
-            if stat.lower() == "description":
-                #debuff_string = debuff_update(target_enemy,item_and_description)
-                #debuff = parse_debuff(debuff_string)
-                target_enemy.current_effects.append()
-            else: # hp stat
-               print("TODO")
+            ddebuff, edebuff = use_item_stat(item_and_description,target_enemy,item_enemystat_update,item_enemy_descriptionstat_update)
+            return ddebuff, edebuff
         else: # not inrange
-           print("TODO")
+           print("not in range")
+           return False, ""
     
     else: # item will effect player
-        if stat.lower() == "description":
-            #buff_string = buff_update(target_enemy,item_and_description)
-            #buff = parse_buff(debuff_string)
-            target_enemy.current_effects.append()
-          
-               
-
-      
-
-
+       dbuff, ebuff = use_item_stat(item_and_description,player,item_playerstat_update,item_player_descriptionstat_update)
+       return dbuff, ebuff

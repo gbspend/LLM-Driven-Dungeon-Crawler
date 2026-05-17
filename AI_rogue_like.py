@@ -134,6 +134,19 @@ class rogue_like:
             if order[0] == "ITEM":
                 item = player.items.pop(order[1]) #TODO
                 print("USE ITEM:",item)
+                try:
+                    d1,d2 = api_call.use_item(item,self.enemies,self.player)
+                    if d1 == False:
+                        textBox.add("Nothing in range")
+                        player.items.append(item)
+                    else:
+                        textBox.add(d1)
+                        textBox.add(d2)
+                except:
+                    textBox.add("try again")
+                    player.items.append(item)
+                #print(player.get_desc())
+
             turn = True
             self.playerAggress = False
             self.state_update(("MOVE", enemies, turn))
