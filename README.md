@@ -6,4 +6,5 @@ Simple 2D dungeon crawler game with game mechanics (state updates) implemented w
 Spendlove, B., and Kline, D. 2026 [Forthcoming]. An Initial Design for Generative Game Mechanics via LLM Function Emulation. In _Proceedings of the 17th International Conference on Computational Creativity_. 
 
 ### Credits
-* Art: pixel-poem, https://pixel-poem.itch.io/dungeon-assetpuck
+* Tileset: pixel-poem, https://pixel-poem.itch.io/dungeon-assetpuck
+* Enemies: Deep Dive Game Studio, https://deepdivegamestudio.itch.io/

@@ -7,6 +7,8 @@ GAME_SCALE = 2
 
 TILE_SIZE = 16
 
+SPRITE_DIR = "Entities"
+
 BOB_TIME = 15
 
 #relative to game_surf

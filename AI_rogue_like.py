@@ -7,7 +7,8 @@ from characters import Character, Enemy
 from tiles import TileMap
 from text import TextBox, Inventory
 from enum import Enum
-#from fight import FightPanel
+from entities import load_sprites, get_name
+from fight import FightPanel
 
 class GameState(Enum):
     RUN = 1
@@ -40,10 +41,10 @@ def hp_state(player, enemy):
         eState = "HEALTHY"
     return pState, eState
 
-class rogue_like:
+class Game:
     # simple class to eliminate need for globals
-    def __init__(self, enemies, player, textBox, default_pos, fair_distance, collision_list, re_sprites, playerAggress = False):
-        self.enemies = enemies
+    def __init__(self, player, textBox, default_pos, fair_distance, collision_list, re_sprites, playerAggress = False):
+        self.enemies = []
         self.player = player
         self.textBox = textBox
         self.default_pos = default_pos
@@ -141,7 +142,7 @@ class rogue_like:
                 else:
                     textBox.add(d)
                     if s == "description":
-                        textBox.add(("The " + n + " is now: " + e))
+                        textBox.add("The " + n + " is now: " + e)
 
                     #textBox.add("try again")
                     #player.items.append(item)
@@ -149,12 +150,12 @@ class rogue_like:
 
             turn = True
             self.playerAggress = False
-            self.state_update(("MOVE", enemies, turn))
+            self.state_update(("MOVE", self.enemies, turn))
         # Movement
         if order[0] == "MOVE":
             # Player movement
             if order[1] == player:
-                player.pos, turn, player_attack, attack_pos = player.move(*order[2], player.pos, tiles_list, tile_size, enemies)
+                player.pos, turn, player_attack, attack_pos = player.move(*order[2], player.pos, tiles_list, tile_size, self.enemies)
                 # Calling state update to attack an enemy
                 if player_attack is True:
                     self.state_update(("ATK", player, attack_pos))
@@ -162,16 +163,18 @@ class rogue_like:
                     #TODO: pick up items on that square
                     self.playerAggress = False
                 # Calling state update to move enemies
-                self.state_update(("MOVE", enemies, turn))
+                self.state_update(("MOVE", self.enemies, turn))
             # Enemy movement
-            if order[1] == enemies:
+            if order[1] == self.enemies:
                 # If turn is true, move
                 if order[2] is True:
-                    for enemy in enemies:
-                        enemy.pos, enemy_attack = enemy.move_enemy(enemy.pos, tiles_list, tile_size, player.pos, enemies, order[2])
+                    for enemy in self.enemies:
+                        enemy.pos, enemy_attack = enemy.move_enemy(enemy.pos, tiles_list, tile_size, player.pos, self.enemies, order[2])
+                        '''
                         # Allowing certain enemies to cover multiple spaces
                         if enemy in fast_enemy and enemy_attack is False:
-                            enemy.pos, enemy_attack = enemy.move_enemy(enemy.pos, tiles_list, tile_size, player.pos, enemies, order[2])
+                            enemy.pos, enemy_attack = enemy.move_enemy(enemy.pos, tiles_list, tile_size, player.pos, elf.enemies, order[2])
+                        '''
                         # Enemy attacking player
                         if enemy_attack is True and self.playerAggress is False:
                             # Only attacking if the player hasn't attacked previously, preventing doubled combat scenarios
@@ -195,7 +198,7 @@ class rogue_like:
         elif order[0] == "ATK":
             # Rename attack command?
                 if order[1] == player:
-                    for enemy in enemies:
+                    for enemy in self.enemies:
                         # Check position of each enemy to see which one you attack
                         if enemy.pos == order[2]:
                             # Calling API for combat
@@ -258,7 +261,7 @@ if __name__ == "__main__":
 
     # Spritesheet
     tile_spritesheet = Spritesheet('Dungeon_Tileset.png')
-    char_spritesheet = Spritesheet('Dungeon_character.png')
+    #char_spritesheet = Spritesheet('Dungeon_character.png')
 
     # Loading map tile
     tilemap = TileMap('test_tile2.csv', tile_spritesheet, 'objs2.csv')
@@ -271,46 +274,39 @@ if __name__ == "__main__":
     right = (1, 0)
 
     turn = False
+    
+    entity_anims = load_sprites(SPRITE_DIR)
 
     # 16x16 sprites: adjust each coordinate by 16 to swap sprite
     default_pos = (0, 0)
-    knight_1 = char_spritesheet.get_sprite_pair(0,32)
-    knight_e = char_spritesheet.get_sprite_pair(80,32)
-    skel_g = char_spritesheet.get_sprite_pair(64,48)
-    skel_r = char_spritesheet.get_sprite_pair(96,48)
-    necro_l = char_spritesheet.get_sprite_pair(32,48)
-    necro_g = char_spritesheet.get_sprite_pair(48,48)
-    spirit_g = char_spritesheet.get_sprite_pair(16,48)
+    warrior_1 = get_name(entity_anims,"Elf Lord")#char_spritesheet.get_sprite_pair(0,32)
+    warrior_e = get_name(entity_anims,"Goblin Fighter")#char_spritesheet.get_sprite_pair(80,32)
+    skel_g   = get_name(entity_anims,"Decrepit Bones")#char_spritesheet.get_sprite_pair(64,48)
+    skel_r   = get_name(entity_anims,"Grave Revenant")#char_spritesheet.get_sprite_pair(96,48)
+    necro_l  = get_name(entity_anims,"Goblin Occultist")#char_spritesheet.get_sprite_pair(32,48)
+    necro_g  = get_name(entity_anims,"Adept Necromancer")#char_spritesheet.get_sprite_pair(48,48)
+    bat_s = get_name(entity_anims,"Vampire Bat")#char_spritesheet.get_sprite_pair(16,48)
+    
     # sprite list for random enemy spawns
-    sprites = {"Knight": knight_e, "Spirit": spirit_g, "Vampire": necro_l, "Knife Skeleton": skel_g, "Scythe Skeleton": skel_r}
-
+    sprites = {name:anims for name,anims in entity_anims}
 
     dead_sprite = tile_spritesheet.get_sprite_rc(9,6)
-    knight = Character('Knight', 'A knight', 25, default_pos, knight_1, dead_sprite)
-    skel_knife = Enemy('Skeleton Grunt', 'A weak skeleton, armed with a knife.',10, 10, 2, default_pos, skel_g)
-    skel_knife2 = Enemy('Skeleton Grunt', 'A weak skeleton, armed with a knife.',10, 10, 2, default_pos, skel_g)
-    skel_scy = Enemy('Reaper', 'The skeleton of a strong warrior, armed with a scythe.', 15, 15, 4, default_pos, skel_r)
-    necro = Enemy('Necromancer', 'A necromancer. Weak on its own, but capable of calling more undead to aid it.', 12, 12, 3, default_pos, necro_l)
+    warrior = Character('Warrior', 'A warrior', 25, default_pos, warrior_1, dead_sprite)
+    necro = Enemy('Necromancer', 'A goblin necromancer. Weak on its own, but capable of calling more undead to aid it.', 12, 12, 3, default_pos, necro_l)
     necro_greater = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, 4, default_pos, necro_g)
-    spirit_greater = Enemy('Spirit', 'A spirit summoned to aid a necromancer.', 1, 1, 7, default_pos, spirit_g)
-    spirit_greater2 = Enemy('Spirit', 'A spirit summoned to aid a necromancer.', 1, 1, 7, default_pos, spirit_g)
-    spirit_greater3 = Enemy('Spirit', 'A spirit summoned to aid a necromancer.', 1, 1, 7, default_pos, spirit_g)
-    goblin = Enemy('Goblin', 'A goblin warrior. Individually weak, but capable of calling for reinforcements.', 10, 10, 2, default_pos, knight_e)
-    enemies = []
+    goblin = Enemy('Goblin', 'A goblin warrior. Individually weak, but capable of calling for reinforcements.', 10, 10, 2, default_pos, warrior_e)
+    bat = Enemy('Bat', 'A large vampire bat with sharp fangs and claws.', 10, 10, 2, default_pos, bat_s)
     fair_distance = 32
-    player = knight
-    state = ()
+    player = warrior
 
-    n_reinforcements = [(skel_knife.name, skel_knife.description), (skel_scy.name, skel_scy.description)]
-
-    roguelike = rogue_like(enemies, player, textBox, default_pos, fair_distance, collision_list, sprites)
+    game = Game(player, textBox, default_pos, fair_distance, collision_list, sprites)
 
     tooltip = TextBox(base_font, pygame.Rect(0,0,TIP_WIDTH,TIP_HEIGHT), WHITE, BLACK)
     last_enemy = None
     
     #TEST
     sk = pygame.transform.flip(skel_g[0],True,False)
-    fight_panel = None#FightPanel(knight_1[0], sk, (FIGHT_W,FIGHT_H),FIGHT_POS,base_font)
+    fight_panel = None#FightPanel(warrior_1[0], sk, (FIGHT_W,FIGHT_H),FIGHT_POS,base_font)
 
     # Game loop
     running = True
@@ -319,17 +315,10 @@ if __name__ == "__main__":
     player.pos = spawn
     attack_pos = (0, 0)
 
-    # enemy spawn
-    spirit_count = 0
-    fast_enemy = [spirit_greater]
     # enemy spawn batches
-    all_batch = [skel_knife, skel_scy, necro, necro_greater, spirit_greater]
-    easy_batch = [skel_knife, skel_knife2]
-    medium_batch = [skel_knife, skel_scy, spirit_greater]
-    necro = [necro, necro_greater, goblin]
-    batch = necro
+    batch = [necro, necro_greater, goblin, bat]
     for enemy in batch:
-        roguelike.spawn_enemy(enemy, fair_distance, collision_list)
+        game.spawn_enemy(enemy, fair_distance, collision_list)
         
     state = GameState.RUN
     shade_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
@@ -361,16 +350,16 @@ if __name__ == "__main__":
                     # Cardinal direction movement
                     if event.key == pygame.K_w:
                         # state = ("MOVE", player, direction)
-                        roguelike.state_update(("MOVE", player, up))
+                        game.state_update(("MOVE", player, up))
                     elif event.key == pygame.K_a:
-                        roguelike.state_update(("MOVE", player, left))
+                        game.state_update(("MOVE", player, left))
                     elif event.key == pygame.K_s:
-                        roguelike.state_update(("MOVE", player, down))
+                        game.state_update(("MOVE", player, down))
                     elif event.key == pygame.K_d:
-                        roguelike.state_update(("MOVE", player, right))
+                        game.state_update(("MOVE", player, right))
                     # Skip turn
                     elif event.key == pygame.K_SPACE:
-                        roguelike.state_update("SKIP")
+                        game.state_update("SKIP")
                         
                     #-- TEMP ----------------------------------
                     elif event.key == pygame.K_l:
@@ -404,7 +393,7 @@ if __name__ == "__main__":
 
         # Add sprite to screen
         player.draw(game_surf)
-        for enemy in enemies:
+        for enemy in game.enemies:
             enemy.draw(game_surf)
         player_attack = False
         enemy_attack = False
@@ -415,7 +404,7 @@ if __name__ == "__main__":
         screen.blit(pygame.transform.scale_by(game_surf,GAME_SCALE),(0,0))
         
         if state == GameState.RUN:
-            for enemy in enemies:
+            for enemy in game.enemies:
                 enemy_rect = enemy.get_rect()
                 if enemy_rect.collidepoint(game_mouse_pos) and not fight_panel:
                     if enemy != last_enemy:
@@ -424,7 +413,7 @@ if __name__ == "__main__":
                         #add lines
                         tooltip.add(enemy.name)
                         tooltip.add(enemy.get_desc())
-                        tooltip.add((str(enemy.hp) + "/" + str(enemy.max_hp) + " hp"))
+                        tooltip.add(str(enemy.hp) + "/" + str(enemy.max_hp) + " hp")
                         tooltip.resize_to_text()
                     offset_pos = (mouse_pos[0] + 15, mouse_pos[1] + 10)
                     tooltip.render(screen, offset_pos)
@@ -440,7 +429,7 @@ if __name__ == "__main__":
                         inv.prep(player)
                 else:
                     state = GameState.RUN
-                    roguelike.state_update(("ITEM", i))
+                    game.state_update(("ITEM", i))
             inv.draw(screen)
         
         if fight_panel:

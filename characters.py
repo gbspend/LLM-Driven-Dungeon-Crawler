@@ -111,7 +111,7 @@ class Character:
             self.i += 1
             if self.i >= len(self.sprites):
                 self.i = 0
-        screen.blit(self.hi,self.pos)
+        #screen.blit(self.hi,self.pos)
         sprite = self.sprites[self.i]
         if not self.face_right:
             sprite = pygame.transform.flip(sprite,True,False)

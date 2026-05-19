@@ -60,6 +60,9 @@ def cleanup_response(response_str):
     return output
 
 def get_response(prompt_str, model_str="llama-3.3-70b-versatile", verb=False):
+    if verb:    
+        print("PROMPT:\n",response_str)
+        print()
     completion = client.chat.completions.create(
         model=model_str,
         messages=[
@@ -70,7 +73,9 @@ def get_response(prompt_str, model_str="llama-3.3-70b-versatile", verb=False):
         ]
     )
     response_str = completion.choices[0].message.content
-    if verb: print(response_str)
+    if verb:
+        print("RESPONSE:\n",response_str)
+        print()
     output = cleanup_response(response_str)
     return output
     
@@ -458,7 +463,7 @@ def item_playerstat_update(item_and_description):
 
 #-------------------------
 def item_enemy_descriptionstat_update(item_and_description,enemy):
-    prompt_str = fprompt_str = f"""An item has just been used by the player and will target an enemy and change the enemy's description.
+    prompt_str = f"""An item has just been used by the player and will target an enemy and change the enemy's description.
     How you will do this:
     
     1. Describe how the effect looks on the enemy.
