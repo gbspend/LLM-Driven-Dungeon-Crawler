@@ -1,3 +1,4 @@
+from AI_rogue_like import hp_state
 from groq import Groq
 import json
 from secret import KEY
@@ -55,6 +56,7 @@ print(completion.choices[0].message.content)'''
 
 def cleanup_response(response_str):
     output = response_str.replace("*", "")
+    output = response_str.replace("`", "")
     return output
 
 def get_response(prompt_str, model_str="llama-3.3-70b-versatile", verb=False):
@@ -380,7 +382,7 @@ def item_picktarget_update(item_and_description):
    prompt_str = f"""Given an item with this a description determine whether the item should:
     target the player as a beneficial effect (healing, buff, support), or
     target an enemy as a harmful effect (damage, debuff, negative status).
-    Return ONLY a valid JSON like the example
+    Return ONLY a valid JSON like the example do not add anything
 
     Examples:
     Input:
@@ -396,14 +398,13 @@ def item_picktarget_update(item_and_description):
 
 #-------------------------
 def item_enemystat_update(item_and_description):
-    prompt_str = f"""
-    An item has just been used by the player and will target an enemy.
+    prompt_str = f"""An item has just been used by the player and will target an enemy.
     Choose exactly ONE stat for the item to negatively affect from the following list:
     
     description = use when the effect cannot be represented by other stats e.g. hp
     hp = current health points and direct damage
     
-    Return ONLY a valid JSON like the example
+    Return ONLY a valid JSON like the example do not add anything
     
     Examples:
 
@@ -427,14 +428,13 @@ def item_enemystat_update(item_and_description):
 
 
 def item_playerstat_update(item_and_description):
-    prompt_str = f"""
-    An item has just been used by the player and will target the player.
+    prompt_str = f"""An item has just been used by the player and will target the player.
     Choose exactly ONE stat for the item to positively affect from the following list:
 
     description = use when the effect cannot be represented by other stats e.g. hp
     hp = current health points and healing
 
-    Return ONLY a valid JSON like the example
+    Return ONLY a valid JSON like the example do not add anything
 
     Examples:
 
@@ -458,15 +458,14 @@ def item_playerstat_update(item_and_description):
 
 #-------------------------
 def item_enemy_descriptionstat_update(item_and_description,enemy):
-    prompt_str = fprompt_str = f"""
-    An item has just been used by the player and will target an enemy and change the enemy's description.
+    prompt_str = fprompt_str = f"""An item has just been used by the player and will target an enemy and change the enemy's description.
     How you will do this:
     
     1. Describe how the effect looks on the enemy.
     2. Give a short description of what the effect does such as defense down, blind, stunned, poisoned, burning, weakened, and so on.
 
     
-    Return ONLY a valid JSON like the example
+    Return ONLY a valid JSON like the example do not add anything
     
     Example:
     
@@ -494,14 +493,13 @@ def item_enemy_descriptionstat_update(item_and_description,enemy):
 
 
 def item_player_descriptionstat_update(item_and_description, player):
-    prompt_str = f"""
-    An item has just been used by the player and will affect the player and change the player's description.
+    prompt_str = f"""An item has just been used by the player and will affect the player and change the player's description.
     How you will do this:
 
     1. Describe how the effect looks on the player.
     2. Give a short description of what the effect does such as defense up, strengthened, energized, and so on. (note that this does not include healing)
 
-    Return ONLY a valid JSON like the example
+    Return ONLY a valid JSON like the example do not add anything
 
     Example:
 
@@ -530,71 +528,178 @@ def item_player_descriptionstat_update(item_and_description, player):
     return get_response(prompt_str)
 
 #-------------------------
-def item_enemy_hpstat_update(item_and_description, enemy):
-    prompt_str = f"""
+def item_enemy_hpstat_update(item_and_description, enemy, eState):
+    prompt_str = f"""An item has just been used by the player against an enemy.
+    The item attack will affect the enemy's HP.
+    Adjust the strength of the enemy based on their status: HEALTHY, WOUNDED, or MAIMED.
+
+    1. Describe how the attack looks and impacts the enemy.
+    2. Return a damage value of "LOW", "MEDIUM", or "HIGH". If the enemy is defeated, the dealt value should be "FATAL". if the enemy takes no damage the dealt value should be "None"
+
+    Return ONLY a valid JSON like the example do not add anything
+
+    Examples:
+
+    Input:
+    Item: Magic Scroll
+    Item Description: A glowing scroll that promises to unleash powerful magic once used.
+    Enemy: Goblin
+    Enemy Description: A small, cunning creature with sharp ears and leather armor.
+    Current enemy state: WOUNDED
+    Output:
     {{
-    "description": "",
-    "effect": ""
+    "description": "A burst of arcane fire erupts from the scroll and slams into the goblin, scorching its body.",
+    "effect": "FATAL"
     }}
-    
+
+    Using the format from the examples, run a scenario with 
+    this Item: {item_and_description[0]} description: {item_and_description[1]}
+    and this enemy: {enemy.name} description: {enemy.get_desc} Current enemy state: {eState}
+
     """
     return get_response(prompt_str)
 
-def item_player_hpstat_update(item_and_description, enemy):
-    prompt_str = f"""
+def item_player_hpstat_update(item_and_description, player, tState=0):
+    prompt_str = f""""An item has just been used by the player and will affect the player and change the player's hp.
+    How you will do this:
+
+    1. Describe how the healing looks.
+    2. Return a healing value of "Low", "Half", "Most", or "All".
+
+    Return ONLY a valid JSON like the example do not add anything
+
+    Input:
+    Item: Healing Herb
+    Item Description: A small glowing green herb that slowly restores vitality when crushed and consumed.
+    player: mage
+    Output:
     {{
-    "description": "",
-    "effect": ""
+    "description": "The mage crushes the Healing Herb in her hands, and a soft green glow spreads through her skin before fading into her, mending her wounds.",
+    "effect": "Half"
     }}
     
+    this Item: {item_and_description[0]} description: {item_and_description[1]}
+    and this player: {player.name}
     """
     return get_response(prompt_str)
 
-def use_item_stat(item_and_description, target, stat_update,descriptionstat_update,hpstat_update=0):
-    stat_string = stat_update(item_and_description)
-    print(stat_string)
-    stat = json.loads(stat_string)["Stat"]
+#========================
 
-    if stat.lower() == "description":
-        buff_string = descriptionstat_update(item_and_description,target)
-        buff = json.loads(buff_string)
-        dbuff = buff["description"]
-        ebuff = buff["effect"]
-        print(dbuff, ebuff)
-        target.current_effects.append(ebuff)
-        return dbuff, ebuff
-    else:
-       hp_string = hpstat_update(item_and_description,target)
-       hp = json.loads(hp_string)
-       dhp = hp["description"]
-       ehp = hp["effect"]
-       print(ehp,dhp)
-       return dhp, ehp
-         
-   
 def use_item(item_and_description,enemies,player):
-    target_string = item_picktarget_update(item_and_description)
-    print(target_string)
-    target = json.loads(target_string)["Target"]
-    print(target)
+    target, target_type = use_item_target(item_and_description,enemies,player)
+    if target == False:
+        return target, "", "", ""
+    
+    stat = use_item_stat(item_and_description,target_type)
+    if stat == "description":
+        dbuff, ebuff = use_item_description(item_and_description,target,target_type)
+        return dbuff, stat, ebuff, target.name
+    else:
+        dhp, ehp =use_item_hp(item_and_description,target,target_type)
+        return dhp, stat, ehp, target.name
 
+
+def use_item_target(item_and_description,enemies,player):
+    target_string = item_picktarget_update(item_and_description)
+    #print(target_string)
+    target = json.loads(target_string)["Target"]
+    
     if target.lower() == "enemy": # item will effect enemy
         inrange = []
         attack_range = 16
         for e in enemies:
-            print(e.pos[0] - player.pos[0], end=",   ")
-            print(e.pos[1] - player.pos[1])
+            #print(e.pos[0] - player.pos[0], end=",   ")
+            #print(e.pos[1] - player.pos[1])
             if (abs(e.pos[0] - player.pos[0]) <= attack_range) and (abs(e.pos[1] - player.pos[1]) <= attack_range):
                 inrange.append(e)
-
         if inrange:
             target_enemy = inrange.pop()
-            ddebuff, edebuff = use_item_stat(item_and_description,target_enemy,item_enemystat_update,item_enemy_descriptionstat_update)
-            return ddebuff, edebuff
+            return target_enemy, "E"
+        
         else: # not inrange
-           print("not in range")
+           #print("not in range")
            return False, ""
     
     else: # item will effect player
-       dbuff, ebuff = use_item_stat(item_and_description,player,item_playerstat_update,item_player_descriptionstat_update)
-       return dbuff, ebuff
+       return player, "P"
+    
+
+def use_item_stat(item_and_description,target_type):
+    if target_type == "E":
+        stat_string = item_enemystat_update(item_and_description)
+        #print(stat_string)
+        stat = json.loads(stat_string)["Stat"]
+    else:
+        stat_string = item_playerstat_update(item_and_description)
+        #print(stat_string)
+        stat = json.loads(stat_string)["Stat"]
+    return stat.lower()
+    
+
+def use_item_description(item_and_description,target,target_type):
+    if target_type == "E": 
+        descriptionstat_update = item_enemy_descriptionstat_update
+    else:
+        descriptionstat_update = item_player_descriptionstat_update
+
+    buff_string = descriptionstat_update(item_and_description,target)
+    buff = json.loads(buff_string)
+    dbuff, ebuff = buff["description"], buff["effect"]
+
+    #print(dbuff, ebuff)
+    target.current_effects.append(ebuff)
+    return dbuff, ebuff
+
+
+def use_item_hp(item_and_description,target,target_type):
+    if target_type == "E": 
+        hpstat_update = item_enemy_hpstat_update
+        hp_handle = combat_handler_item
+    else:
+        hpstat_update = item_player_hpstat_update
+        hp_handle = heal_handler_item
+    
+    tState, dupe_tState = hp_state(target, target)
+    #print(tState)
+    hp_string = hpstat_update(item_and_description,target,tState)
+    print(hp_string)
+    hp = json.loads(hp_string)
+    #print(hp)
+    dhp, ehp = hp["description"], hp["effect"].lower()
+
+    hp_handle(ehp,target)
+    #print(ehp,dhp)
+    return dhp, ehp
+
+def combat_handler_item(dealt,target):
+    dealt = dealt.lower()
+    if dealt == "fatal":
+        dmg = target.max_hp
+    elif dealt == "high":
+        dmg = int(target.max_hp * 0.7)
+    elif dealt == "medium":
+        dmg = int(target.max_hp * 0.4)
+    elif dealt == "low":
+        dmg = int(target.max_hp * 0.2)
+    # dealt == "NONE"
+    else:
+        dmg = 0
+
+    target.hp = max(0, (target.hp - dmg))
+
+
+def heal_handler_item(healed,target):
+    healed = healed.lower()
+    if healed == "all":
+        heal = target.max_hp
+    elif healed == "most":
+        heal = int(target.max_hp * 0.7)
+    elif healed == "half":
+        heal = int(target.max_hp * 0.4)
+    elif healed == "low":
+        heal = int(target.max_hp * 0.2)
+    # dealt == "NONE"
+    else:
+        heal = 1
+
+    target.hp = min(target.max_hp, (target.hp + heal))

@@ -38,7 +38,8 @@ class Character:
             ("Shimmering Potion", "A small flask of bright iridescent liquid."),
             ("Singed Scroll","A scroll covered in ancient runes; the edges are charred."),
             ("Evil Wand","A heavy black rod that pulses with malevolent intent."),
-            ("stink bomb","stink bomb no damage")
+            ("stink bomb","stink bomb no damage"),
+            ("bandage", "for healing")
         ]
     
     def get_desc(self):
@@ -269,7 +270,11 @@ class Enemy:
     def get_desc(self):
         desc = self.description
         if self.current_effects:
-            desc = desc + "with the current effects:"
-            for i in self.current_effects:
-                desc = desc + ", " + str(i)
+            desc = desc + " With the current effects: "
+
+            for i in range(len(self.current_effects)):
+                if i == 0:
+                    desc = desc + str(self.current_effects[i])
+                else:
+                    desc = desc + ", " + str(self.current_effects[i])
         return desc
