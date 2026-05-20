@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 from AI_rogue_like import hp_state
 from groq import Groq
 import json
@@ -59,10 +62,10 @@ def cleanup_response(response_str):
     output = response_str.replace("`", "")
     return output
 
-def get_response(prompt_str, model_str="llama-3.3-70b-versatile", verb=False):
-    if verb:    
-        print("PROMPT:\n",response_str)
-        print()
+#llama-3.3-70b-versatile
+#llama-3.1-8b-instant
+def get_response(prompt_str, model_str="llama-3.3-70b-versatile", verb=True):
+    logger.info("PROMPT:\n"+prompt_str)
     completion = client.chat.completions.create(
         model=model_str,
         messages=[
@@ -73,9 +76,7 @@ def get_response(prompt_str, model_str="llama-3.3-70b-versatile", verb=False):
         ]
     )
     response_str = completion.choices[0].message.content
-    if verb:
-        print("RESPONSE:\n",response_str)
-        print()
+    logger.info("RESPONSE:\n"+response_str)
     output = cleanup_response(response_str)
     return output
     
@@ -222,8 +223,9 @@ def parse_reinforcement(reinforcements):
   return enemy1, enemy2, enemy3
 
 def generate_reinforcement(scenario, count):
-    prompt_str = f'''Based on the provided combat scenario {scenario} where the enemy calls for reinforcements, create appropriate enemies to be summoned.
-        Here are some example enemies and their descriptions:
+    prompt_str = f'''Based on the following combat scenario where the enemy calls for reinforcements, create appropriate enemies to be summoned.
+    Scenario: {scenario}
+    Examples: Here are some example enemies and their descriptions:
         Format the enemies like so:
         Enemy 1: Skeleton Grunt, A weak skeleton, armed with a knife.
         Enemy 2: Reaper, The skeleton of a strong warrior, armed with a scythe.
@@ -231,19 +233,12 @@ def generate_reinforcement(scenario, count):
     return get_response(prompt_str)
 
 def parse_sprite(name, desc, sprites):
-  completion = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {
-                "role": "system",
-                "content": f"Given the name {name} and description {desc} of an enemy, select the sprite from {sprites} that suits them the best."
-            }
-        ]
-    )
-  output = completion.choices[0].message.content
-  for sprite in sprites:
-    if sprite in output:
-      return sprites[sprite]
+    sprite_name_list = list(sprites.keys())
+    prompt_str = f"Given the name {name} and description {desc} of an enemy, select the sprite from the following list whose name suits that enemy the best. Respond with only the name of the sprite. List: {sprite_name_list}"
+    output = get_response(prompt_str)
+    for sprite in sprites:
+        if sprite in output:
+            return sprites[sprite]
 
 def enemy_generator(scenario, enemy_count, sprites):
   scenario = scenario.split("DEALT")[0]
@@ -269,6 +264,9 @@ def enemy_generator(scenario, enemy_count, sprites):
   
 #===================================================== item gen =============================
 
+def drop_item_update_JSON(dropchance):
+    return json.loads(drop_item_update(dropchance))
+
 def drop_item_update(dropchance):
    prompt_str = f"""the scenario is an enemy has just died. You must decide whether it drops something.
    a dropchance will be given and effect how likely something will drop.
@@ -285,6 +283,8 @@ def drop_item_update(dropchance):
    """
    return get_response(prompt_str)
 
+def item_type_update_JSON(enemy):
+    return json.loads(item_type_update(enemy))
 
 def item_type_update(enemy):
    prompt_str = f"""the scenario is an enemy has just died and it dropped something.

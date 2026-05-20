@@ -122,6 +122,9 @@ class FightPanel:
                 strength,0
             )
 
+    def end(self):
+        self.stop = True
+        
     def update(self):
         if self.done_a and self.done_b:
             if self.final_t > 0:

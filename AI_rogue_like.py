@@ -1,3 +1,12 @@
+import logging
+
+logging.basicConfig(
+    filename="game.log",
+    level=logging.INFO,
+    format="%(asctime)s %(threadName)s %(levelname)s [%(name)s] %(message)s"
+)
+#logging should be configured before other imports
+
 import pygame
 import random
 import api_call
@@ -305,7 +314,7 @@ if __name__ == "__main__":
     last_enemy = None
     
     #TEST
-    sk = pygame.transform.flip(skel_g[0],True,False)
+    sk = pygame.transform.flip(warrior_e[0],True,False)
     fight_panel = None#FightPanel(warrior_1[0], sk, (FIGHT_W,FIGHT_H),FIGHT_POS,base_font)
 
     # Game loop
@@ -366,7 +375,7 @@ if __name__ == "__main__":
                         textBox.add("asdkfjhaslkdfj asjlkdfh lkajsdhf lkjashdf kjahsdf jkashdf kj hasd flkj hasdflkjh aslkdjfh alksjf asdf")
                     elif event.key == pygame.K_k and fight_panel:
                         print("FP STOP")
-                        fight_panel.stop = True
+                        fight_panel.end()
                     #------------------------------------------
         
         mouse_pos = pygame.mouse.get_pos()
