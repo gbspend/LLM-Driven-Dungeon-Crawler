@@ -134,7 +134,9 @@ class Character:
     def get_hp_panel(self):
         if self.health_panel is not None and self.last_hp == self.hp:
             return self.health_panel
-        print(f"rebuilding health panel {self.last_hp} -> {self.hp}")
+        if self.dead or self.hp < 1:
+            self.dead = True
+            self.hp = 0
         self.last_hp = self.hp
         WIDTH, HEIGHT = 304, 50
         self.health_panel = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)

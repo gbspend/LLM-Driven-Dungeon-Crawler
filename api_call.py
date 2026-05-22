@@ -12,20 +12,20 @@ client = Groq(api_key = KEY )
 SYS_PROMPT_JSON = "You are deciding what happens in a dungeon crawler video game. Make decisions that are fair, interesting, varied, and match the description given. Return **ONLY ONE** valid JSON statement, no other text or comments."
 SCENARIO_PROMPT = "You are resolving combat scenarios for a dungeon crawler video game. The combat may be just starting or already in progress; describe the next actions. Make decisions that are fair, interesting, varied, and sensisble. Don't include numbers or other video game terms."
 
-def find_bracketed_region(s):
-    curly = s.find('{')
-    square = s.find('[')
-
-    # pick earliest opening bracket
-    opens = [(i, '{', '}') for i in (curly,) if i != -1] + \
-            [(i, '[', ']') for i in (square,) if i != -1]
-
-    if not opens:
+def find_brackets(s):
+    close = None
+    for start in range(len(s)):
+        if s[start] == '{':
+            close = '}'
+            break
+        elif s[start] == '[':
+            close = ']'
+            break
+    
+    if close is None:
         return None
 
-    start, _, close_char = min(opens)
-
-    end = s.rfind(close_char)
+    end = s.rfind(close)
     if end == -1 or end < start:
         return None
 
@@ -33,7 +33,7 @@ def find_bracketed_region(s):
 
 #trim non-JSON before and after JSON
 def parse_json(resp):
-    indices = find_bracketed_region(resp)
+    indices = find_brackets(resp)
     assert indices is not None, "response with no JSON: " + repr(resp)
     i,j = indices
     return json.loads(resp[i:j])
@@ -92,6 +92,8 @@ Output: '''
     return get_response2(prompt_str, incl_json=False)
 
 POSSIBLE_VARS = "[player_hp, player_status, player_distance, enemy_hp, enemy_status, enemy_distance, enemy_count]"
+
+#asks whether and how each variable should change
 def combat_vars_together(player,enemy,scen):
     prompt_str = f'''Based on the following scenario, how should these video game state variable change? Return a JSON object with an entry for each variable. Mark hp, distance, and count variables with "increase", "greatly increase", "decrease", "greatly decrease", "unchanged". Mark status variables with "unchanged" or a short description of the new status. Here are the variables: {POSSIBLE_VARS}.
 Example: 
@@ -106,6 +108,7 @@ Scenario: {scen}
 Variables: '''
     return get_response2(prompt_str, incl_json=True)
 
+#asks which variables should change, but not how
 def combat_vars(player,enemy,scen):
     prompt_str = f'''Based on the following scenario, which video game state variables should be affected? Select from this list: {POSSIBLE_VARS}. Be conservative in your selection. Give a JSON list of the affected variables.
 Example 1:
@@ -125,6 +128,7 @@ Scenario: {scen}
 JSON: '''
     return get_response2(prompt_str, incl_json=True)
 
+#TODO
 def update_var(player,enemy,scen,var):
     prompt_str = f'''Based on the following scenario, how should this video game state variable change?
     '''

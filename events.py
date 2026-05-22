@@ -70,7 +70,7 @@ class Chain:
                 self.done = True
 
 #testing threading and partial item drop Chain
-def main1():
+def first_chain_test():
     pygame.init()
     clock = pygame.time.Clock()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -82,7 +82,7 @@ def main1():
     base_font = pygame.font.Font("Book.ttf", 17)
     fight_panel = FightPanel(warrior_1[0], sk, (FIGHT_W,FIGHT_H),FIGHT_POS,base_font)
     
-    enemy = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, 4, None,None)
+    enemy = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, None,None)
     count = 5
     t1 = Task(api_call.drop_item_update_JSON,[count],lambda r: r["drop"].lower() != "no")
     t2 = Task(api_call.item_type_update_JSON,[enemy])
@@ -118,7 +118,7 @@ def main1():
     pygame.quit()
 
 
-def main2():
+def first_var_test():
     player = Character("Warrior", "A strong, brave warrior", 20,None,None,None)
     enemy = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, None,None)
     
@@ -127,7 +127,6 @@ def main2():
     vs = api_call.combat_vars_together(player,enemy,scen)
     print(vs)
 
-#THIS ISN'T REALLY A GOOD TEST
 def summon_test(N = 10):
     player = Character("Warrior", "A strong, brave warrior", 20,None,None,None)
     enemy = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, None,None)
@@ -135,19 +134,22 @@ def summon_test(N = 10):
     count = 0
     error = 0
     i = 0
-    while i < N:
+    while i < N or summ < 1:
         i+= 1
         scen = api_call.combat_scenario(player,enemy)
         if "summon" not in scen.lower():
             continue
         summ += 1 
-        print(summ, count, error)
-        vs = api_call.combat_vars(player,enemy,scen)
-        if 'variables' not in vs:
+        js = api_call.combat_vars_together(player,enemy,scen)
+        if 'enemy_count' not in js:
             error += 1
             continue
-        if 'enemy_count' in vs['variables']:
+        if 'increase' in js['enemy_count']:
             count+= 1
+        print(f"i: {i}, summ: {summ}, count: {count}, error: {error}")
+        print(scen)
+        print("enemy_count =", js['enemy_count'])
+        print()
         
 if __name__ == "__main__":
     logging.basicConfig(
@@ -155,4 +157,6 @@ if __name__ == "__main__":
         level=logging.INFO,
         format="%(asctime)s %(threadName)s %(levelname)s [%(name)s] %(message)s"
     )
-    main2()
+    #first_chain_test()
+    first_var_test()
+    #summon_test()
