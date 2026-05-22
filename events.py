@@ -2,9 +2,10 @@ import pygame
 import api_call
 from entities import load_sprites, get_name
 from concurrent.futures import ThreadPoolExecutor
-from characters import Enemy
+from characters import Character, Enemy
 from consts import *
 from fight import FightPanel
+import logging
 
 #rewriting api interface to be threaded and more flexible
 
@@ -67,9 +68,9 @@ class Chain:
                 print("\t",self.last_result)
                 self.output = self.finalf(self.last_result)
                 self.done = True
-    
 
-if __name__ == "__main__":
+#testing threading and partial item drop Chain
+def main1():
     pygame.init()
     clock = pygame.time.Clock()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -115,3 +116,43 @@ if __name__ == "__main__":
         clock.tick(30)
     
     pygame.quit()
+
+
+def main2():
+    player = Character("Warrior", "A strong, brave warrior", 20,None,None,None)
+    enemy = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, None,None)
+    
+    scen = api_call.combat_scenario(player,enemy)
+    print(scen)
+    vs = api_call.combat_vars_together(player,enemy,scen)
+    print(vs)
+
+#THIS ISN'T REALLY A GOOD TEST
+def summon_test(N = 10):
+    player = Character("Warrior", "A strong, brave warrior", 20,None,None,None)
+    enemy = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, None,None)
+    summ = 0
+    count = 0
+    error = 0
+    i = 0
+    while i < N:
+        i+= 1
+        scen = api_call.combat_scenario(player,enemy)
+        if "summon" not in scen.lower():
+            continue
+        summ += 1 
+        print(summ, count, error)
+        vs = api_call.combat_vars(player,enemy,scen)
+        if 'variables' not in vs:
+            error += 1
+            continue
+        if 'enemy_count' in vs['variables']:
+            count+= 1
+        
+if __name__ == "__main__":
+    logging.basicConfig(
+        filename="game.log",
+        level=logging.INFO,
+        format="%(asctime)s %(threadName)s %(levelname)s [%(name)s] %(message)s"
+    )
+    main2()

@@ -2,6 +2,15 @@ import pygame
 import random
 from consts import *
 
+# helper function governing HP state of player and enemy
+def hp_state(char):
+    if char.hp < int(0.7 * char.max_hp) and char.hp > int(0.3 * char.max_hp):
+        return "WOUNDED"
+    elif char.hp < int(0.3 * char.max_hp):
+        return "MAIMED"
+    else:
+        return "HEALTHY"
+
 class Character:
     def __init__(self, name, description, max_hp, pos, sprites, dead_sprite):
         self.name = name
@@ -50,6 +59,9 @@ class Character:
                 desc = desc + ", " + str(i)
             self.current_effects = [] # only one round
         return desc
+    
+    def get_state(self):
+        return hp_state(self)
 
     # player spawn location
     def spawn(self, tiles_list, collision_list):
@@ -181,18 +193,20 @@ class Character:
         return self.health_panel
 
 class Enemy:
-    def __init__(self, name, description, max_hp, hp, atk, pos, sprites):
+    def __init__(self, name, description, max_hp, hp, pos, sprites):
         self.name = name
         self.description = description
         self.max_hp = max_hp
         self.hp = hp
-        self.atk = atk # not used
         self.pos = pos
         self.face_right = True
         self.sprites = sprites
         self.i = 0
         self.t = BOB_TIME
         self.current_effects = []
+    
+    def get_state(self):
+        return hp_state(self)
 
     # enemy location list for combat
     def locations(self, enemies):

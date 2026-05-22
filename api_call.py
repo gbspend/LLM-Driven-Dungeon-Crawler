@@ -1,61 +1,136 @@
 import logging
 logger = logging.getLogger(__name__)
 
-from AI_rogue_like import hp_state
 from groq import Groq
 import json
 from secret import KEY
 
-'''screen_width = 854
-screen_height = 480
-screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption("Drawing Example")
-default_pos = (0, 0)
-#tile_spritesheet = Spritesheet('Dungeon_Tileset.png')
-char_spritesheet = Spritesheet('Dungeon_character.png')
-knight_1 = char_spritesheet.get_sprite(0,32)
-skel_g = char_spritesheet.get_sprite(64,48)
-skel_r = char_spritesheet.get_sprite(96,48)
-necro_l = char_spritesheet.get_sprite(32,48)
-necro_g = char_spritesheet.get_sprite(48,48)
-spirit_g = char_spritesheet.get_sprite(16,48)
-
-
-knight = Character('Knight', 'A knight, armed with a spear. ',25, default_pos, knight_1)
-skel_knife = Enemy('Skeleton Grunt', 'A weak skeleton, armed with a knife.',10, 10, 2, default_pos, skel_g)
-skel_scy = Enemy('Reaper', 'The skeleton of a strong warrior, armed with a scythe.', 15, 15, 4, default_pos, skel_r)
-necro = Enemy('Necromancer', 'A necromancer. Weak on its own, but capable of calling more undead to aid it.', 12, 12, 3, default_pos, necro_l)
-necro_greater = Enemy('Greater Necromancer', 'A powerful necromancer.', 16, 16, 4, default_pos, necro_g)
-spirit_greater = Enemy('Spirit', 'A spirit summoned to aid a necromancer.', 1, 1, 7, default_pos, spirit_g)'''
 client = Groq(api_key = KEY )
-'''completion = client.chat.completions.create(
-    model="llama-3.3-70b-versatile",
-    messages=[
-        {
-            "role": "system",
-            "content": "Resolve this video game combat scenario, given the name and description of the player character and enemy to engage. "
-                       "Return a damage value of low, medium, or high."
-                       "Example 1: "
-                       "Player class: Knight"
-                       "Class description: A knight, armed with a spear. A powerful melee combatant."
-                       "Enemy: Skeleton Grunt"
-                       "Enemy description: A weak skeleton, armed with a knife."
-                       "Output: The knight pierces the skull of the skeleton grunt with his spear, destroying it. DEALT: FATAL, RECEIVED: NONE"
-                       "Example 2: "
-                       "Player class: Mage"
-                       "Class description: A mage, armed with a staff. Weak in melee combat, but a powerful ranged combatant."
-                       "Enemy: Reaper"
-                       "Enemy description: The skeleton of a strong warrior, armed with a scythe."
-                       "Output: The mage blasts the reaper with a fireball. The now charred reaper shambles back to its feet, missing an arm. It is too far from the mage to retaliate. DEALT: MEDIUM. RECEIVED: NONE"
-                       f"Using the format from the examples, run a combat scenario with the player class Knight, with the description {knight.description}, attacking a reaper, with the description {skel_scy.description}."
 
+#++ TESTING ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-        }
-    ]
-)
-print(completion.choices[0].message.content)'''
+SYS_PROMPT_JSON = "You are deciding what happens in a dungeon crawler video game. Make decisions that are fair, interesting, varied, and match the description given. Return **ONLY ONE** valid JSON statement, no other text or comments."
+SCENARIO_PROMPT = "You are resolving combat scenarios for a dungeon crawler video game. The combat may be just starting or already in progress; describe the next actions. Make decisions that are fair, interesting, varied, and sensisble. Don't include numbers or other video game terms."
 
-#===COMMON FUNCTIONS====================================================================
+def find_bracketed_region(s):
+    curly = s.find('{')
+    square = s.find('[')
+
+    # pick earliest opening bracket
+    opens = [(i, '{', '}') for i in (curly,) if i != -1] + \
+            [(i, '[', ']') for i in (square,) if i != -1]
+
+    if not opens:
+        return None
+
+    start, _, close_char = min(opens)
+
+    end = s.rfind(close_char)
+    if end == -1 or end < start:
+        return None
+
+    return (start, end+1)
+
+#trim non-JSON before and after JSON
+def parse_json(resp):
+    indices = find_bracketed_region(resp)
+    assert indices is not None, "response with no JSON: " + repr(resp)
+    i,j = indices
+    return json.loads(resp[i:j])
+
+#llama-3.3-70b-versatile
+#llama-3.1-8b-instant
+def get_response2(prompt_str, model_str="llama-3.1-8b-instant", incl_json=True):
+    logger.info("PROMPT:\n"+prompt_str)
+    completion = client.chat.completions.create(
+        model=model_str,
+        messages=[
+            {
+                "role": "system",
+                "content": SYS_PROMPT_JSON if incl_json else SCENARIO_PROMPT
+            },
+            {
+                "role": "user",
+                "content": prompt_str,
+            },
+        ]
+    )
+    response_str = completion.choices[0].message.content
+    logger.info("RESPONSE:\n"+response_str)
+    if not incl_json:
+        return response_str
+    else:
+        return parse_json(response_str)
+
+def combat_scenario(player, enemy):
+    prompt_str = f'''Narratively describe the outcome of this combat scenario, given the name and description of the player character and enemy to engage. Keep the output brief, 1-3 sentences max.
+Example 1: 
+Player class: Knight
+Status: HEALTHY
+Class description: A knight, armed with a spear. A powerful melee combatant.
+Enemy: Skeleton Grunt
+Status: MAIMED
+Enemy description: A weak skeleton, armed with a knife.
+Output: The knight pierces the skull of the skeleton grunt with his spear, destroying it.
+Example 2: 
+Player class: Mage
+Status: HEALTHY
+Class description: A mage, armed with a staff. Weak in melee combat, but a powerful ranged combatant.
+Enemy: Reaper
+Status: HEALTHY
+Enemy description: The skeleton of a strong warrior, armed with a scythe.
+Output: The mage blasts the reaper with a fireball. The now-charred reaper surges forward and cuts a deep gash in the mage's arm.
+Current scenario:
+Player class: {player.name}
+Status: {player.get_state()}
+Class description: {player.get_desc()}
+Enemy: {enemy.name}
+Status: {enemy.get_state()}
+Enemy description: {enemy.get_desc()}
+Output: '''
+
+    return get_response2(prompt_str, incl_json=False)
+
+POSSIBLE_VARS = "[player_hp, player_status, player_distance, enemy_hp, enemy_status, enemy_distance, enemy_count]"
+def combat_vars_together(player,enemy,scen):
+    prompt_str = f'''Based on the following scenario, how should these video game state variable change? Return a JSON object with an entry for each variable. Mark hp, distance, and count variables with "increase", "greatly increase", "decrease", "greatly decrease", "unchanged". Mark status variables with "unchanged" or a short description of the new status. Here are the variables: {POSSIBLE_VARS}.
+Example: 
+Player: Mage
+Enemy: Reaper
+Output: The mage blasts the reaper with a fireball. The now-charred reaper surges forward and cuts a deep gash in the mage's arm.
+Variables: {{"player_hp": "greatly decrease", "player_status": "unchanged", "player_distance": "unchanged", "enemy_hp": "decrease", "enemy_status": "burned", "enemy_distance": "unchanged", "enemy_count": "unchanged"}}
+Current:
+Player: {player.name}
+Enemy: {enemy.name}
+Scenario: {scen}
+Variables: '''
+    return get_response2(prompt_str, incl_json=True)
+
+def combat_vars(player,enemy,scen):
+    prompt_str = f'''Based on the following scenario, which video game state variables should be affected? Select from this list: {POSSIBLE_VARS}. Be conservative in your selection. Give a JSON list of the affected variables.
+Example 1:
+Player: Knight
+Enemy: Skeleton Grunt
+Scenario: The knight pierces the skull of the skeleton grunt with his spear, destroying it.
+JSON: {{"variables":["enemy_hp"]}}
+Example 2: 
+Player: Mage
+Enemy: Reaper
+Output: The mage blasts the reaper with a fireball. The now-charred reaper surges forward and cuts a deep gash in the mage's arm.
+JSON: {{"variables":["player_hp","enemy_hp"]}}
+Current:
+Player: {player.name}
+Enemy: {enemy.name}
+Scenario: {scen}
+JSON: '''
+    return get_response2(prompt_str, incl_json=True)
+
+def update_var(player,enemy,scen,var):
+    prompt_str = f'''Based on the following scenario, how should this video game state variable change?
+    '''
+    return get_response2(prompt_str, incl_json=True)
+
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 def cleanup_response(response_str):
     output = response_str.replace("*", "")
@@ -64,7 +139,7 @@ def cleanup_response(response_str):
 
 #llama-3.3-70b-versatile
 #llama-3.1-8b-instant
-def get_response(prompt_str, model_str="llama-3.3-70b-versatile", verb=True):
+def get_response(prompt_str, model_str="llama-3.3-70b-versatile", verb=False):
     logger.info("PROMPT:\n"+prompt_str)
     completion = client.chat.completions.create(
         model=model_str,
@@ -664,7 +739,7 @@ def use_item_hp(item_and_description,target,target_type):
         hpstat_update = item_player_hpstat_update
         hp_handle = heal_handler_item
     
-    tState, dupe_tState = hp_state(target, target)
+    tState = target.get_state()
     #print(tState)
     hp_string = hpstat_update(item_and_description,target,tState)
     print(hp_string)
