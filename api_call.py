@@ -1,7 +1,6 @@
 import logging
 logger = logging.getLogger(__name__)
 
-from AI_rogue_like import hp_state
 from groq import Groq
 import json
 from secret import KEY
@@ -27,7 +26,7 @@ skel_scy = Enemy('Reaper', 'The skeleton of a strong warrior, armed with a scyth
 necro = Enemy('Necromancer', 'A necromancer. Weak on its own, but capable of calling more undead to aid it.', 12, 12, 3, default_pos, necro_l)
 necro_greater = Enemy('Greater Necromancer', 'A powerful necromancer.', 16, 16, 4, default_pos, necro_g)
 spirit_greater = Enemy('Spirit', 'A spirit summoned to aid a necromancer.', 1, 1, 7, default_pos, spirit_g)'''
-client = Groq(api_key = KEY )
+client = Groq(api_key = KEY)
 '''completion = client.chat.completions.create(
     model="llama-3.3-70b-versatile",
     messages=[
@@ -598,10 +597,10 @@ def use_item(item_and_description,enemies,player):
     stat = use_item_stat(item_and_description,target_type)
     if stat == "description":
         dbuff, ebuff = use_item_description(item_and_description,target,target_type)
-        return dbuff, stat, ebuff, target.name
+        return dbuff, stat, ebuff, target
     else:
         dhp, ehp =use_item_hp(item_and_description,target,target_type)
-        return dhp, stat, ehp, target.name
+        return dhp, stat, ehp, target
 
 
 def use_item_target(item_and_description,enemies,player):
@@ -664,7 +663,7 @@ def use_item_hp(item_and_description,target,target_type):
         hpstat_update = item_player_hpstat_update
         hp_handle = heal_handler_item
     
-    tState, dupe_tState = hp_state(target, target)
+    tState = hp_state(target)
     #print(tState)
     hp_string = hpstat_update(item_and_description,target,tState)
     print(hp_string)
@@ -708,3 +707,98 @@ def heal_handler_item(healed,target):
         heal = 1
 
     target.hp = min(target.max_hp, (target.hp + heal))
+
+def hp_state(target):
+    if target.hp < int(0.7 * target.max_hp) and target.hp > int(0.3 * target.max_hp):
+        tState = "WOUNDED"
+    elif target.hp < int(0.3 * target.max_hp):
+        tState = "MAIMED"
+    else:
+        tState = "HEALTHY"
+
+    return tState
+
+#====================================================
+
+def post_combat_update(scenario):
+    prompt_str = f"""A fight has just been completed and now I need you to decide if it sholud have any side effects
+    Answer the followins qustions:
+
+    1. Does the enemy get knocked back
+    2. Does the player get knocked back
+
+    Examples:
+    input:
+    The goblin warrior charges at the warrior, its crude weapons flailing wildly. The warrior easily parries the goblin's attack and strikes back with their small dull knife, landing a glancing blow.
+    output:
+    {{
+    "enemypushed": "no"
+    "playerpushed": "no"
+    }}
+
+    input:
+    The Evil Wand crackles with dark energy as it strikes the Necromancer, unleashing a bolt of shadowy force that strikes true, but the Necromancer's mastery of dark magic allows them to withstand the attack, though they stumble back, clearly affected.
+    output:
+    {{
+    "enemypushed": "yes",
+    "playerpushed": "no"
+    }}
+    Using the format from the examples, run this: "{scenario}" scenario
+    """
+    return get_response(prompt_str)
+
+def post_combat(scenario,player,target,tiles,enemies):
+    effect = 1
+    post_combat_string = post_combat_update(scenario)
+    print(post_combat_string)
+    post_combat = json.loads(post_combat_string)
+    print(post_combat)
+    if post_combat["enemypushed"].lower() == "yes":
+        hit_something = push(target,player,99,player,enemies,tiles)
+
+
+def push(target, pusher, dist, player, enemies, tiles):
+    push = ((pusher.pos[0]-target.pos[0]),(pusher.pos[1]-target.pos[1]))
+    for i in range(dist):
+        dest = (target.pos[0] - push[0], target.pos[1] - push[1])
+        for enemy in enemies:
+                if dest == enemy.pos:
+                    return True
+        for t in tiles:
+            t_pos = (t[1], t[2])
+            if dest == t_pos:
+                if t[3] is True:
+                    return True
+        if dest == player.pos:
+            return True
+        target.pos = dest
+    return False
+                
+
+
+
+
+"""
+for t in tiles:
+            t_pos = (t[1], t[2])
+            # if colliding with another enemy, don't move
+            for enemy in enemies:
+                if dest == enemy.pos:
+                    return pos, attack
+            if dest == t_pos:
+                if t[3] is True:
+                    # Unsuccesful move
+                    return pos, attack
+                else:
+                    # Succesful move
+                    if flip_facing:
+                        self.face_right = not self.face_right
+                    return t_pos, attack
+                    """
+
+
+"""
+enemy pos
+player pos
+
+"""

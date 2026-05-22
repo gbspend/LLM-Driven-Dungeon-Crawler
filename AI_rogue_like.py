@@ -142,20 +142,27 @@ class Game:
         # Skip turn
         if order == "SKIP" or order[0] == "ITEM":
             if order[0] == "ITEM":
+
                 item = player.items.pop(order[1]) #TODO
                 print("USE ITEM:",item)
-                d,s,e,n = api_call.use_item(item,self.enemies,self.player)
+                d,stat,effect,target = api_call.use_item(item,self.enemies,self.player)
                 if d == False:
                     textBox.add("Nothing in range")
                     player.items.append(item)
+                    
                 else:
                     textBox.add(d)
-                    if s == "description":
-                        textBox.add("The " + n + " is now: " + e)
+                    if stat == "description":
+                        textBox.add("The " + target.name + " is now: " + effect)
 
-                    #textBox.add("try again")
-                    #player.items.append(item)
-                #print(player.get_desc())
+                    if stat == "hp" and target != player.name:
+                        if target.hp <= 0:
+                            self.enemies.remove(target)
+                            self.item_spawn(target)
+                #print(target.pos) 
+                api_call.post_combat(d,player,target,tiles_list,self.enemies)
+                #print(target.pos)
+
 
             turn = True
             self.playerAggress = False

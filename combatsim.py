@@ -69,7 +69,12 @@ def runTest(f, N):
 if __name__ == "__main__":
     #print(vsWeak())
     #print(vsStrong())
-    
+    enemy1 = Enemy('Stone Golem', 'A huge, indestructible granite construct.', 100, 100, 20, None, None)
+    enemy2 = Enemy('Goblin', 'A weak, pathetic goblin', 5, 5, 1, None, None)
+    enemy3 = Enemy('Necromancer', 'A goblin necromancer. Weak on its own, but capable of calling more undead to aid it.', 12, 12, 3, None, None)
+    enemy4 = Enemy('Bat', 'A large vampire bat with sharp fangs and claws.', 10, 10, 2, None, None)
+    enemy5 = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, 4, None, None)
+
     N = 10
     """
     tests = [vsWeak, vsStrong, woundedVsGob, maimedVsGob, knifeVsGob, slayerVsGob]
@@ -86,13 +91,129 @@ if __name__ == "__main__":
     if data["drop"] == "yes":
         print("Item dropped!")
     """
+
+    # item spawn
+
+    # full run
     """
-    knight = 1
-    enemy = Enemy('Stone Golem', 'A huge, indestructible granite construct.', 100, 100, 20, None, None)
-    c = 4
+    knight = Character('Knight', 'A knight', 25, None, None, None)
+    enemy = enemy1
+    drop_chance = 4
+    j = 0
+    drops = 0
+    weps = 0
+    weplist = []
+    items = 0
+    itemlist = []
+    try:
+        for i in range(N):
+            new_item, new_item_Type = api_call.gen_item(enemy,knight,drop_chance)
+            if new_item == "N":
+                j += 1
+                continue
+            drops += 1
+            
+            if new_item_Type.lower() == "item":
+                items += 1
+                itemlist.append(new_item)
+            else:
+                weps += 1
+                weplist.append(new_item)
+            j += 1
+            print(weps)
+    finally:
+        print(str(drops) + " out of " + str(j) + " dropped")
+        print("weps: " + str(weps) + "\nlist: ",end ="")
+        print(weplist)
+        print("items: " + str(items) + "\nlist: ",end ="")
+        print(itemlist)
+    """
+    
+
+    # drop? yes or no
+    """
+    drop_chance = 2
+    yesc = 0
+    noc = 0
+    j = 0
+    try:
+        for i in range(N):
+            diditdrop_string = api_call.drop_item_update(drop_chance)
+            print(diditdrop_string)
+            diditdrop = json.loads(diditdrop_string)
+            if diditdrop["drop"].lower() == "no":
+                noc += 1
+            else:
+                yesc += 1
+            j += 1
+    finally:
+        print("drop chance: " + str(drop_chance))
+        print("total runs: " + str(j))
+        print("yes count: " + str(yesc))
+        print("no count: " + str(noc))
+    """
+
+    # will it drop a weapon or item?
+    """
+    enemy = enemy1
+    j=0
+    weps = 0
+    items = 0
+    try:
+        for i in range(N):
+            Type_string = api_call.item_type_update(enemy)
+            print(Type_string)
+            Type = json.loads(Type_string)
+            if Type["type"].lower() == "item":
+                    items += 1
+            else:
+                weps += 1
+            j+=1
+    finally:
+        print("enemy: " + enemy.name)
+        print("total runs: " + str(j))
+        print("total wep: " + str(weps))
+        print("total item: " + str(items))
+    """
+
+    # what wep will it drop?
+    """
+    weplist = []
+    enemy = enemy1
     for i in range(N):
-        api_call.gen_item(enemy,knight,c) # to use this test change api_call.gen_item so #player.....append(weapon_and_description)
+        weapon_string = api_call.item_spawn_weapon_update(enemy)
+        weapon = json.loads(weapon_string)
+        weapon_and_description = (weapon["drops"],weapon["description"])
+        print(weapon_and_description)
+        weplist.append(weapon_and_description)
     """
+
+    
+    # what item will it drop?
+    """
+    itemlist = []
+    enemy = enemy1
+    for i in range(N):
+        item_string = api_call.item_spawn_item_update(enemy)
+        item = json.loads(weapon_string)
+        item_and_description = (weapon["drops"],weapon["description"])
+        print(item_and_description)
+        itemlist.append(weapon_and_description)
+    
+    """
+
+
+
+        
+
+
+    
+    
+
+
+
+
+
 
 
 '''
