@@ -34,22 +34,6 @@ def parse_damage(combat, verb=True):
     received = rec_tuple[1]
     return dealt, received
 
-def hp_state(player, enemy):
-    # helper function governing HP state of player and enemy
-    if player.hp < int(0.7 * player.max_hp) and player.hp > int(0.3 * player.max_hp):
-        pState = "WOUNDED"
-    elif player.hp < int(0.3 * player.max_hp):
-        pState = "MAIMED"
-    else:
-        pState = "HEALTHY"
-    if enemy.hp < int(0.7 * enemy.max_hp) and enemy.hp > int(0.3 * enemy.max_hp):
-        eState = "WOUNDED"
-    elif enemy.hp < int(0.3 * enemy.max_hp):
-        eState = "MAIMED"
-    else:
-        eState = "HEALTHY"
-    return pState, eState
-
 class Game:
     # simple class to eliminate need for globals
     def __init__(self, player, textBox, default_pos, fair_distance, collision_list, re_sprites, playerAggress = False):
@@ -194,7 +178,7 @@ class Game:
                         # Enemy attacking player
                         if enemy_attack is True and self.playerAggress is False:
                             # Only attacking if the player hasn't attacked previously, preventing doubled combat scenarios
-                            pState, eState = hp_state(player, enemy)
+                            pState, eState = player.get_state(), enemy.get_state()
                             instructions = api_call.combat_state_update_enemy(player, enemy, pState, eState)
                             if enemy == necro or enemy == necro_greater or enemy == goblin:
                                 # Providing enemy spawn instructions and calling necro state update
@@ -218,7 +202,7 @@ class Game:
                         # Check position of each enemy to see which one you attack
                         if enemy.pos == order[2]:
                             # Calling API for combat
-                            pState, eState = hp_state(player, enemy)
+                            pState, eState = player.get_state(), enemy.get_state()
                             if enemy == necro or enemy == necro_greater or enemy == goblin:
                                 # Providing enemy spawn instructions and calling necro state update
                                 instructions = api_call.combat_state_update_necro(player, enemy, pState, eState)
@@ -241,17 +225,17 @@ class Game:
         # Necromancer enemy spawn state
         elif order[0] == "NECRO":
             # Spawning reinforcement enemy
-            temp_enemy = Enemy(order[1][0], order[1][1], 10, 10, 2, default_pos, order[1][2])
+            temp_enemy = Enemy(order[1][0], order[1][1], 10, 10, default_pos, order[1][2])
             #print(temp_enemy.name, temp_enemy.description)
             self.spawn_enemy(temp_enemy, self.fair_distance, self.collision_list)
             if order[2] != 0:
                 # Spawning second enemy if eligible
-                temp_enemy = Enemy(order[2][0], order[2][1], 10, 10, 2, default_pos, order[2][2])
+                temp_enemy = Enemy(order[2][0], order[2][1], 10, 10, default_pos, order[2][2])
                 #print(temp_enemy.name, temp_enemy.description)
                 self.spawn_enemy(temp_enemy, self.fair_distance, self.collision_list)
                 if order[3] != 0:
                     # Spawning third enemy if eligible, only checking if second enemy was present
-                    temp_enemy = Enemy(order[3][0], order[3][1], 10, 10, 2, default_pos, order[3][2])
+                    temp_enemy = Enemy(order[3][0], order[3][1], 10, 10, default_pos, order[3][2])
                     #print(temp_enemy.name, temp_enemy.description)
                     self.spawn_enemy(temp_enemy, self.fair_distance, self.collision_list)
 
@@ -308,10 +292,10 @@ if __name__ == "__main__":
 
     dead_sprite = tile_spritesheet.get_sprite_rc(9,6)
     warrior = Character('Warrior', 'A warrior', 25, default_pos, warrior_1, dead_sprite)
-    necro = Enemy('Necromancer', 'A goblin necromancer. Weak on its own, but capable of calling more undead to aid it.', 12, 12, 3, default_pos, necro_l)
-    necro_greater = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, 4, default_pos, necro_g)
-    goblin = Enemy('Goblin', 'A goblin warrior. Individually weak, but capable of calling for reinforcements.', 10, 10, 2, default_pos, warrior_e)
-    bat = Enemy('Bat', 'A large vampire bat with sharp fangs and claws.', 10, 10, 2, default_pos, bat_s)
+    necro = Enemy('Necromancer', 'A goblin necromancer. Weak on its own, but capable of calling more undead to aid it.', 12, 12, default_pos, necro_l)
+    necro_greater = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, default_pos, necro_g)
+    goblin = Enemy('Goblin', 'A goblin warrior. Individually weak, but capable of calling for reinforcements.', 10, 10, default_pos, warrior_e)
+    bat = Enemy('Bat', 'A large vampire bat with sharp fangs and claws.', 10, 10, default_pos, bat_s)
     fair_distance = 32
     player = warrior
 

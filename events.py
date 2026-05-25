@@ -2,9 +2,10 @@ import pygame
 import api_call
 from entities import load_sprites, get_name
 from concurrent.futures import ThreadPoolExecutor
-from characters import Enemy
+from characters import Character, Enemy
 from consts import *
 from fight import FightPanel
+import logging
 
 #rewriting api interface to be threaded and more flexible
 
@@ -67,9 +68,9 @@ class Chain:
                 print("\t",self.last_result)
                 self.output = self.finalf(self.last_result)
                 self.done = True
-    
 
-if __name__ == "__main__":
+#testing threading and partial item drop Chain
+def first_chain_test():
     pygame.init()
     clock = pygame.time.Clock()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -81,7 +82,7 @@ if __name__ == "__main__":
     base_font = pygame.font.Font("Book.ttf", 17)
     fight_panel = FightPanel(warrior_1[0], sk, (FIGHT_W,FIGHT_H),FIGHT_POS,base_font)
     
-    enemy = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, 4, None,None)
+    enemy = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, None,None)
     count = 5
     t1 = Task(api_call.drop_item_update_JSON,[count],lambda r: r["drop"].lower() != "no")
     t2 = Task(api_call.item_type_update_JSON,[enemy])
@@ -115,3 +116,47 @@ if __name__ == "__main__":
         clock.tick(30)
     
     pygame.quit()
+
+
+def first_var_test():
+    player = Character("Warrior", "A strong, brave warrior", 20,None,None,None)
+    enemy = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, None,None)
+    
+    scen = api_call.combat_scenario(player,enemy)
+    print(scen)
+    vs = api_call.combat_vars_together(player,enemy,scen)
+    print(vs)
+
+def summon_test(N = 10):
+    player = Character("Warrior", "A strong, brave warrior", 20,None,None,None)
+    enemy = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, None,None)
+    summ = 0
+    count = 0
+    error = 0
+    i = 0
+    while i < N or summ < 1:
+        i+= 1
+        scen = api_call.combat_scenario(player,enemy)
+        if "summon" not in scen.lower():
+            continue
+        summ += 1 
+        js = api_call.combat_vars_together(player,enemy,scen)
+        if 'enemy_count' not in js:
+            error += 1
+            continue
+        if 'increase' in js['enemy_count']:
+            count+= 1
+        print(f"i: {i}, summ: {summ}, count: {count}, error: {error}")
+        print(scen)
+        print("enemy_count =", js['enemy_count'])
+        print()
+        
+if __name__ == "__main__":
+    logging.basicConfig(
+        filename="game.log",
+        level=logging.INFO,
+        format="%(asctime)s %(threadName)s %(levelname)s [%(name)s] %(message)s"
+    )
+    #first_chain_test()
+    first_var_test()
+    #summon_test()
