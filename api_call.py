@@ -40,7 +40,7 @@ def parse_json(resp):
 
 #llama-3.3-70b-versatile
 #llama-3.1-8b-instant
-def get_response2(prompt_str, model_str="llama-3.1-8b-instant", incl_json=True):
+def get_response2(prompt_str, model_str="llama-3.3-70b-versatile", incl_json=True):
     logger.info("PROMPT:\n"+prompt_str)
     completion = client.chat.completions.create(
         model=model_str,
@@ -162,7 +162,7 @@ def get_response(prompt_str, model_str="llama-3.3-70b-versatile", verb=False):
 
 #====================================== combat prompts =================================================
 
-def combat_state_update(player, enemy):
+def combat_state_update(player, enemy): # not used in main game
     prompt_str = f'''Resolve this video game combat scenario, given the name and description of the player character and enemy to engage. 
        Return a damage value of low, medium, or high.
        Example 1: 
@@ -204,7 +204,7 @@ def combat_state_update_alt(player, enemy, pStatus = "HEALTHY", eStatus = "HEALT
        Output: The mage blasts the reaper with a fireball. The now charred reaper shambles back to its feet, missing an arm. It is too far from the mage to retaliate. DEALT: HIGH, RECEIVED: NONE
        Using the format from the examples, run a combat scenario with the {pStatus} player {player.name}, with the description {player.get_desc()}, attacking a {eStatus} enemy {enemy.name}, with the description {enemy.get_desc()}.'''
 
-    return get_response(prompt_str, verb=verb)
+    return get_response(prompt_str, verb=verb), enemy
 
 def combat_state_update_enemy(player, enemy, pStatus = "HEALTHY", eStatus = "HEALTHY"):
     prompt_str = f'''Resolve this video game combat scenario, given the name and description of the player character and enemy to engage. Adjust the strength of the player and enemy based on their status: HEALTHY, WOUNDED, or MAIMED.
@@ -253,7 +253,7 @@ def combat_state_update_necro(player, enemy, pStatus = "HEALTHY", eStatus = "HEA
        Output: The mage shoots a fireball at the greater necromancer, but his wounds affect its strength. The necromancer diverts the blast with a barrier, receiving minimal damage. The necromancer retaliates with a wave of dark energy, which the mage also blocks. It then summons a wave of undead warriors. DEALT: LOW, RECEIVED: LOW
        Using the format from the examples, run a combat scenario with the {pStatus} player {player.name}, with the description {player.get_desc()}, attacking a {eStatus} enemy {enemy.name}, with the description {enemy.get_desc()}.'''
 
-    return get_response(prompt_str)
+    return get_response(prompt_str), enemy
 
 #======================================= summoning/reinforcement ========================================================
 
@@ -346,7 +346,7 @@ def enemy_generator(scenario, enemy_count, sprites):
 def drop_item_update_JSON(dropchance):
     return json.loads(drop_item_update(dropchance))
 
-def drop_item_update(dropchance):
+def drop_item_update(dropchance): 
    prompt_str = f"""the scenario is an enemy has just died. You must decide whether it drops something.
    a dropchance will be given and effect how likely something will drop.
    it will go from 0 (very unlikely), 1 (unlikely), 2 (50/50), 4 (likely), 5(very likely)
@@ -380,8 +380,7 @@ def item_type_update(enemy):
    Using the format from the examples, run a scenario with this enemy: {enemy.name} and the following description: {enemy.description}.
    """
    return get_response(prompt_str)
-   
-
+    
 def item_spawn_item_update(enemy):
     prompt_str = f"""the scenario is an enemy has just died and has dropped a Item.
     You must decide what it is and then give it a description
@@ -672,15 +671,15 @@ def item_player_hpstat_update(item_and_description, player, tState=0):
 def use_item(item_and_description,enemies,player):
     target, target_type = use_item_target(item_and_description,enemies,player)
     if target == False:
-        return target, "", "", ""
+        return target, "", "", "", item_and_description
     
     stat = use_item_stat(item_and_description,target_type)
     if stat == "description":
         dbuff, ebuff = use_item_description(item_and_description,target,target_type)
-        return dbuff, stat, ebuff, target
+        return dbuff, stat, ebuff, target, item_and_description
     else:
         dhp, ehp =use_item_hp(item_and_description,target,target_type)
-        return dhp, stat, ehp, target
+        return dhp, stat, ehp, target, item_and_description
 
 
 def use_item_target(item_and_description,enemies,player):
@@ -788,16 +787,6 @@ def heal_handler_item(healed,target):
 
     target.hp = min(target.max_hp, (target.hp + heal))
 
-def hp_state(target):
-    if target.hp < int(0.7 * target.max_hp) and target.hp > int(0.3 * target.max_hp):
-        tState = "WOUNDED"
-    elif target.hp < int(0.3 * target.max_hp):
-        tState = "MAIMED"
-    else:
-        tState = "HEALTHY"
-
-    return tState
-
 #====================================================
 
 def post_combat_update(scenario):
@@ -812,7 +801,7 @@ def post_combat_update(scenario):
     The goblin warrior charges at the warrior, its crude weapons flailing wildly. The warrior easily parries the goblin's attack and strikes back with their small dull knife, landing a glancing blow.
     output:
     {{
-    "enemypushed": "no"
+    "enemypushed": "no",
     "playerpushed": "no"
     }}
 
@@ -828,13 +817,18 @@ def post_combat_update(scenario):
     return get_response(prompt_str)
 
 def post_combat(scenario,player,target,tiles,enemies):
+    if not(target in enemies) or player.hp <= 0:
+        return 
+  
     effect = 1
     post_combat_string = post_combat_update(scenario)
     print(post_combat_string)
     post_combat = json.loads(post_combat_string)
     print(post_combat)
     if post_combat["enemypushed"].lower() == "yes":
-        hit_something = push(target,player,99,player,enemies,tiles)
+        hit_something_e = push(target,player,2,player,enemies,tiles)
+    if post_combat["playerpushed"].lower() == "yes":
+        hit_something_p = push(player,player,2,player,enemies,tiles)
 
 
 def push(target, pusher, dist, player, enemies, tiles):
@@ -853,32 +847,3 @@ def push(target, pusher, dist, player, enemies, tiles):
             return True
         target.pos = dest
     return False
-                
-
-
-
-
-"""
-for t in tiles:
-            t_pos = (t[1], t[2])
-            # if colliding with another enemy, don't move
-            for enemy in enemies:
-                if dest == enemy.pos:
-                    return pos, attack
-            if dest == t_pos:
-                if t[3] is True:
-                    # Unsuccesful move
-                    return pos, attack
-                else:
-                    # Succesful move
-                    if flip_facing:
-                        self.face_right = not self.face_right
-                    return t_pos, attack
-                    """
-
-
-"""
-enemy pos
-player pos
-
-"""

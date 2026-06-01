@@ -19,10 +19,14 @@ from enum import Enum
 from entities import load_sprites, get_name
 from fight import FightPanel
 
+from events import Task,Chain
+from concurrent.futures import ThreadPoolExecutor
+
 class GameState(Enum):
     RUN = 1
     INV = 2
     GAMEOVER = 3
+    FIGHT = 4
 
 def parse_damage(combat, verb=True):
     # retrieving damage dealt and received values from API
@@ -46,6 +50,11 @@ class Game:
         self.re_sprites = re_sprites
         self.playerAggress = False
         self.dropchance = 0
+        self.enemy_turn = False
+
+        self.executor = ThreadPoolExecutor()
+        self.active_chains = []
+           
 
     def spawn_enemy(self, enemy, fair_distance, collision_list):
         # while an enemy has not been spawned
@@ -119,7 +128,7 @@ class Game:
         else:
             self.dropchance += 1
 
-    def state_update(self, order):
+    """def state_update(self, order): # OLD
         if player.hp <= 0: #avoids processing reinforcements after game over
             return
         # order is tuple with parameters: action, target, amount
@@ -127,7 +136,7 @@ class Game:
         if order == "SKIP" or order[0] == "ITEM":
             if order[0] == "ITEM":
 
-                item = player.items.pop(order[1]) #TODO
+                item = player.items.pop(order[1])
                 print("USE ITEM:",item)
                 d,stat,effect,target = api_call.use_item(item,self.enemies,self.player)
                 if d == False:
@@ -160,7 +169,6 @@ class Game:
                 if player_attack is True:
                     self.state_update(("ATK", player, attack_pos))
                 else:
-                    #TODO: pick up items on that square
                     self.playerAggress = False
                 # Calling state update to move enemies
                 self.state_update(("MOVE", self.enemies, turn))
@@ -191,8 +199,8 @@ class Game:
                             # Experiment with prompt.
                             # Throw away prompt output if inadequate
                             EnemyDie = self.combat_handler(enemy, instructions)
+                            api_call.post_combat(instructions.split(" DEALT: ")[0],self.player,enemy,tiles_list,self.enemies)
                             if EnemyDie:
-                                # TODO
                                 self.item_spawn(enemy)
 
         elif order[0] == "ATK":
@@ -216,8 +224,8 @@ class Game:
                             # Throw away prompt output if inadequate
                             # printing combat description
                             EnemyDie = self.combat_handler(enemy, instructions)
+                            api_call.post_combat(instructions.split(" DEALT: ")[0],self.player,enemy,tiles_list,self.enemies)
                             if EnemyDie:
-                                # TODO
                                 self.item_spawn(enemy)
 
                             self.playerAggress = True
@@ -238,6 +246,161 @@ class Game:
                     temp_enemy = Enemy(order[3][0], order[3][1], 10, 10, default_pos, order[3][2])
                     #print(temp_enemy.name, temp_enemy.description)
                     self.spawn_enemy(temp_enemy, self.fair_distance, self.collision_list)
+        """
+
+#=====================================================================
+
+
+    def update(self):
+        active = False
+        for chain in self.active_chains[:]:
+            chain.update()
+            if chain.done:
+                self.active_chains.remove(chain)
+            else:
+                active = True
+        return active
+
+    def handle_use_item(self, result):
+        d, stat, effect, target, item = result
+        if d == False:
+            print(item)
+            textBox.add("Nothing in range")
+            player.items.append(item)
+
+        else:
+            textBox.add(d)
+            if stat == "description":
+                textBox.add(
+                    "The " + target.name + " is now: " + effect
+                )
+
+            if stat == "hp" and target != player.name:
+                if target.hp <= 0:
+                    self.enemies.remove(target)
+                    self.item_spawn(target)
+
+        return (d, target)
+    
+    def handle_enemy_summon_count(self, result):
+        instructions, target = result
+        print(target, instructions)
+        enemy_number_s = api_call.enemy_summon_count(instructions)
+        enemy_number = int(enemy_number_s.split("Enemies: ")[1])
+        if enemy_number != 0:
+                    e1, e2, e3 = api_call.enemy_generator(instructions, enemy_number, self.re_sprites)
+                    self.reinforcement(("NECRO", e1, e2, e3))
+        return instructions, target
+        
+    def handle_combat_update(self,result):
+        instructions, target  = result
+        print(target, instructions)
+        EnemyDie = self.combat_handler(target, instructions)
+        api_call.post_combat(instructions.split(" DEALT: ")[0],self.player,target,tiles_list,self.enemies)
+        if EnemyDie:
+            self.item_spawn(target)
+
+#=========================================================
+
+    def reinforcement(self, order):
+        # Spawning reinforcement enemy
+        temp_enemy = Enemy(order[1][0], order[1][1], 10, 10, default_pos, order[1][2])
+        #print(temp_enemy.name, temp_enemy.description)
+        self.spawn_enemy(temp_enemy, self.fair_distance, self.collision_list)
+        if order[2] != 0:
+            # Spawning second enemy if eligible
+            temp_enemy = Enemy(order[2][0], order[2][1], 10, 10, default_pos, order[2][2])
+            #print(temp_enemy.name, temp_enemy.description)
+            self.spawn_enemy(temp_enemy, self.fair_distance, self.collision_list)
+            if order[3] != 0:
+                # Spawning third enemy if eligible, only checking if second enemy was present
+                temp_enemy = Enemy(order[3][0], order[3][1], 10, 10, default_pos, order[3][2])
+                #print(temp_enemy.name, temp_enemy.description)
+                self.spawn_enemy(temp_enemy, self.fair_distance, self.collision_list)#
+    
+    def start_combat(self, target):
+        pState, eState = player.get_state(), target.get_state()
+        """
+        t1 = Task(api_call.combat_scenario,[self.player,target])
+        t2 = Task(api_call.combat_vars_together,[self.player,target],inputneeded=True)
+        """
+        
+        if target == necro or target == necro_greater or target == goblin: # Providing enemy spawn instructions and calling necro state update
+            combat_state_update_necro_task = Task(api_call.combat_state_update_necro,[player, target, pState, eState],self.handle_enemy_summon_count)
+            enemy_summon_combat_chain = Chain(self.executor,[combat_state_update_necro_task],self.handle_combat_update)
+            self.active_chains.append(enemy_summon_combat_chain)
+            
+        else:
+            combat_state_update_task = Task(api_call.combat_state_update_alt,[player, target, pState, eState])
+            enemy_combat_chain = Chain(self.executor,[combat_state_update_task],self.handle_combat_update)
+            self.active_chains.append(enemy_combat_chain)
+
+
+#===========================================================
+
+
+    def state_update_player(self, order):
+        # SKIP TURN ===============================================================
+        if order == "SKIP":
+            #print("E turn")
+            self.state_update_enemy()
+            self.playerAggress = False
+        # USE ITEM ================================================================
+        elif order[0] == "ITEM":
+            item = player.items.pop(order[1])
+            #print("USE ITEM:",item)
+            use_item_task = Task(api_call.use_item,[item,self.enemies,self.player],self.handle_use_item)
+            use_item_chain = Chain(self.executor,[use_item_task],print)
+            self.active_chains.append(use_item_chain)
+            self.enemy_turn = True # stalls enemy turn until api is done
+            self.playerAggress = False
+            return
+
+        # MOVE =====================================================================
+        elif order[0] == "MOVE":
+            player.pos, turn, player_attack, attack_pos = player.move(*order[2], player.pos, tiles_list, tile_size, self.enemies)
+
+            if player_attack is True: # attacks if enemy is in target tile
+                self.state_update_player(("ATK", player, attack_pos))
+                self.enemy_turn = True # stalls enemy turn until api is done
+                return
+
+            elif turn == False: # stops enemy turn on failed move
+                return 
+            
+            else: # moves player
+                self.playerAggress = False
+                #print("E turn")
+                self.state_update_enemy()
+                
+        # ATTACK ====================================================================
+        elif order[0] == "ATK":
+
+            for enemy in self.enemies: # Check position of each enemy to see which one you attack
+                if enemy.pos == order[2]:
+                    target = enemy
+                    break
+
+            # Calling API for combat
+            self.start_combat(target)
+
+            self.playerAggress = True
+
+
+
+    def state_update_enemy(self):
+        for enemy in self.enemies:
+            enemy.pos, enemy_attack = enemy.move_enemy(enemy.pos, tiles_list, tile_size, player.pos, self.enemies, True)
+
+            # Enemy attacking player
+            if enemy_attack:
+                print("ahh", self.playerAggress)
+            if enemy_attack is True and self.playerAggress is False:
+                # Only attacking if the player hasn't attacked previously, preventing doubled combat scenarios
+                self.start_combat(enemy)
+        
+
+        
 
 if __name__ == "__main__":
     # Initialize Pygame
@@ -306,7 +469,7 @@ if __name__ == "__main__":
     
     #TEST
     sk = pygame.transform.flip(warrior_e[0],True,False)
-    fight_panel = None#FightPanel(warrior_1[0], sk, (FIGHT_W,FIGHT_H),FIGHT_POS,base_font)
+    fight_panel = None
 
     # Game loop
     running = True
@@ -338,7 +501,7 @@ if __name__ == "__main__":
                 running = False
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left mouse button
                 mouse_click = True
-            elif event.type == pygame.KEYDOWN:
+            elif event.type == pygame.KEYDOWN and state != GameState.FIGHT:
                 if event.key == pygame.K_i:
                     if state == GameState.RUN:
                         state = GameState.INV
@@ -350,16 +513,16 @@ if __name__ == "__main__":
                     # Cardinal direction movement
                     if event.key == pygame.K_w:
                         # state = ("MOVE", player, direction)
-                        game.state_update(("MOVE", player, up))
+                        game.state_update_player(("MOVE", player, up))
                     elif event.key == pygame.K_a:
-                        game.state_update(("MOVE", player, left))
+                        game.state_update_player(("MOVE", player, left))
                     elif event.key == pygame.K_s:
-                        game.state_update(("MOVE", player, down))
+                        game.state_update_player(("MOVE", player, down))
                     elif event.key == pygame.K_d:
-                        game.state_update(("MOVE", player, right))
+                        game.state_update_player(("MOVE", player, right))
                     # Skip turn
                     elif event.key == pygame.K_SPACE:
-                        game.state_update("SKIP")
+                        game.state_update_player("SKIP")
                         
                     #-- TEMP ----------------------------------
                     elif event.key == pygame.K_l:
@@ -367,10 +530,23 @@ if __name__ == "__main__":
                     elif event.key == pygame.K_k and fight_panel:
                         print("FP STOP")
                         fight_panel.end()
+                        #fight_panel = None
                     #------------------------------------------
         
         mouse_pos = pygame.mouse.get_pos()
         game_mouse_pos = [v//GAME_SCALE for v in mouse_pos]
+        
+        fighting = game.update()
+        if fighting and not(fight_panel):
+            state = GameState.FIGHT
+            fight_panel = FightPanel(warrior_1[0], sk, (FIGHT_W,FIGHT_H),FIGHT_POS,base_font)
+        elif not(fighting) and fight_panel:
+            fight_panel=None
+            state = GameState.RUN
+            if game.enemy_turn:
+                game.state_update_enemy()
+                game.enemy_turn = False
+
         
         #--RENDER & UPDATE------------------------------
         tilemap.update()
@@ -429,11 +605,11 @@ if __name__ == "__main__":
                         inv.prep(player)
                 else:
                     state = GameState.RUN
-                    game.state_update(("ITEM", i))
+                    game.state_update_player(("ITEM", i))
             inv.draw(screen)
         
-        if fight_panel:
-            fight_panel.draw_msg(screen)
+        #if fight_panel:
+        #    fight_panel.draw_msg(screen)
         
         # Update the display
         pygame.display.flip()

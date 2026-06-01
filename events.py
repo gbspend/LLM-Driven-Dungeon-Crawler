@@ -12,7 +12,7 @@ import logging
 #"link" in the chain of thought
 class Task:
     #postf TAKES self.result (func return value) as arg!
-    def __init__(self, func, args, postf=None):
+    def __init__(self, func, args, postf=None, inputneeded = False):
         self.func = func
         self.args = args #list of arguments, in order
         self.postf = postf
@@ -20,11 +20,23 @@ class Task:
         self.result = None
         self.done = False
         self.proceed = False #True if next link in chain of thought should execute
+        self.inputneeded = inputneeded
 
-    def start(self, executor):
-        self.future = executor.submit(self.func, *self.args)
+    def start(self, executor, force_args = None):
+        print(self.args)
+        if force_args is None or not(self.inputneeded):
+            print("non force")
+            self.future = executor.submit(self.func, *self.args)
+        else:
+            print("force",type(self.args),type(force_args))
+            print(force_args)
+            #args = self.args + force_args
+            self.future = executor.submit(self.func, *force_args)
+
 
     def update(self):
+        if self.done == True:
+            return
         if self.future and self.future.done():
             self.result = self.future.result()
             if not self.postf:
@@ -54,7 +66,7 @@ class Chain:
         curr = self.links[self.i]
         if not self.running:
             self.running = True
-            curr.start(self.executor)
+            curr.start(self.executor, self.last_result)
         else:
             print("curr update:",self.i)
             curr.update()
@@ -83,9 +95,9 @@ def first_chain_test():
     fight_panel = FightPanel(warrior_1[0], sk, (FIGHT_W,FIGHT_H),FIGHT_POS,base_font)
     
     enemy = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, None,None)
-    count = 5
+    count = 0
     t1 = Task(api_call.drop_item_update_JSON,[count],lambda r: r["drop"].lower() != "no")
-    t2 = Task(api_call.item_type_update_JSON,[enemy])
+    t2 = Task(api_call.item_type_update_JSON,[enemy],inputneeded = False)
     
     executor = ThreadPoolExecutor()
     c = Chain(executor,[t1,t2],lambda a,f=fight_panel:f.end())
@@ -157,6 +169,6 @@ if __name__ == "__main__":
         level=logging.INFO,
         format="%(asctime)s %(threadName)s %(levelname)s [%(name)s] %(message)s"
     )
-    #first_chain_test()
-    first_var_test()
+    first_chain_test()
+    #first_var_test()
     #summon_test()

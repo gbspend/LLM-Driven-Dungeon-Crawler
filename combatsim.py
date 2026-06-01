@@ -1,12 +1,12 @@
 #use this to gather data by repeating a combat scenario
 from characters import Character, Enemy
-from AI_rogue_like import parse_damage, hp_state
+from AI_rogue_like import parse_damage
 import api_call
 from collections import defaultdict
 import json
 
 def runCombat(player, enemy, verb=False):
-    pState, eState = hp_state(player, enemy)
+    pState, eState = player.get_state(), enemy.get_state()
     instructions = api_call.combat_state_update_alt(player, enemy, pState, eState, verb)
     return parse_damage(instructions, False)
 
@@ -69,11 +69,12 @@ def runTest(f, N):
 if __name__ == "__main__":
     #print(vsWeak())
     #print(vsStrong())
-    enemy1 = Enemy('Stone Golem', 'A huge, indestructible granite construct.', 100, 100, 20, None, None)
-    enemy2 = Enemy('Goblin', 'A weak, pathetic goblin', 5, 5, 1, None, None)
-    enemy3 = Enemy('Necromancer', 'A goblin necromancer. Weak on its own, but capable of calling more undead to aid it.', 12, 12, 3, None, None)
-    enemy4 = Enemy('Bat', 'A large vampire bat with sharp fangs and claws.', 10, 10, 2, None, None)
-    enemy5 = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, 4, None, None)
+    knight = Character('Knight', 'A knight', 25, None, None, None)
+    enemy1 = Enemy('Stone Golem', 'A huge, indestructible granite construct.', 100, 100, 20, None)
+    enemy2 = Enemy('Goblin', 'A weak, pathetic goblin', 5, 5, 1, None)
+    enemy3 = Enemy('Necromancer', 'A goblin necromancer. Weak on its own, but capable of calling more undead to aid it.', 12, 12, 3, None)
+    enemy4 = Enemy('Bat', 'A large vampire bat with sharp fangs and claws.', 10, 10, 2, None)
+    enemy5 = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, 4, None)
 
     N = 10
     """
@@ -92,7 +93,7 @@ if __name__ == "__main__":
         print("Item dropped!")
     """
 
-    # item spawn
+    # item spawn ================================================================================================
 
     # full run
     """
@@ -141,6 +142,7 @@ if __name__ == "__main__":
             diditdrop_string = api_call.drop_item_update(drop_chance)
             print(diditdrop_string)
             diditdrop = json.loads(diditdrop_string)
+            print(diditdrop)
             if diditdrop["drop"].lower() == "no":
                 noc += 1
             else:
@@ -155,7 +157,7 @@ if __name__ == "__main__":
 
     # will it drop a weapon or item?
     """
-    enemy = enemy1
+    enemy = enemy2
     j=0
     weps = 0
     items = 0
@@ -180,6 +182,8 @@ if __name__ == "__main__":
     """
     weplist = []
     enemy = enemy1
+    print("enemy: " + enemy.name)
+    print("drops wep: ", end = "")
     for i in range(N):
         weapon_string = api_call.item_spawn_weapon_update(enemy)
         weapon = json.loads(weapon_string)
@@ -193,6 +197,8 @@ if __name__ == "__main__":
     """
     itemlist = []
     enemy = enemy1
+    print("enemy: " + enemy.name)
+    print("drops item: ", end = "")
     for i in range(N):
         item_string = api_call.item_spawn_item_update(enemy)
         item = json.loads(weapon_string)
@@ -200,15 +206,101 @@ if __name__ == "__main__":
         print(item_and_description)
         itemlist.append(weapon_and_description)
     
+    
+    """
+
+#   use item ================================================================
+    # pick target
+    """
+    item = ("Evil Wand","A heavy black rod that pulses with malevolent intent.")
+    ecount = 0
+    pcount = 0
+    for i in range(N):
+        target_string = api_call.item_picktarget_update(item)
+        #print(target_string)
+        target = json.loads(target_string)["Target"]
+        if target.lower() == "enemy":
+            ecount += 1
+        else:
+            pcount += 1
+    print("ecount:", ecount)
+    print("pcount:", pcount)
+
+    """
+    # pick stat of enemy
+    """
+    item = ("Evil Wand","A heavy black rod that pulses with malevolent intent.")
+    dcount = 0
+    hpcount = 0
+    for i in range(N):
+        stat_string = api_call.item_enemystat_update(item)
+        stat = json.loads(stat_string)["Stat"].lower()
+        if stat == "description":
+            dcount += 1
+        elif stat == "hp":
+            hpcount += 1
+    print("dcount:", dcount)
+    print("hpcount:", hpcount)
+    """
+    # pick stat of player
+    """
+    item = ("Evil Wand","A heavy black rod that pulses with malevolent intent.")
+    dcount = 0
+    hpcount = 0
+    for i in range(N):
+        stat_string = api_call.item_playerstat_update(item)
+        stat = json.loads(stat_string)["Stat"]
+        if stat == "description":
+            dcount += 1
+        elif stat == "hp":
+            pcount += 1
+    print("dcount:", dcount)
+    print("hpcount:", hpcount)
+    """
+    # how does the item change the enemy description
+    """
+    item = ("Evil Wand","A heavy black rod that pulses with malevolent intent.")
+    enemy = enemy1
+    buff_string = api_call.item_enemy_descriptionstat_update(item,enemy)
+    buff = json.loads(buff_string)
+    dbuff, ebuff = buff["description"], buff["effect"]
+    print(dbuff, "\n", ebuff)
+    """
+    # how does the item change the player description
+    """
+    item = ("Evil Wand","A heavy black rod that pulses with malevolent intent.")
+    player = knight
+    buff_string = api_call.item_player_descriptionstat_update(item,player)
+    buff = json.loads(buff_string)
+    dbuff, ebuff = buff["description"], buff["effect"]
+    print(dbuff, "\n", ebuff)
+    """
+    # how does the item change the enemy hp
+    """
+    item = ("Evil Wand","A heavy black rod that pulses with malevolent intent.")
+    enemy = enemy1
+    eState = "HEALTHY"
+    hp_string = api_call.item_enemy_hpstat_update(item,enemy,eState)
+    hp = json.loads(hp_string)
+    dhp, ehp = hp["description"], hp["effect"].lower()
+    print(dhp, "\n", ehp)
+    """
+    # how does the item change the player hp
+    """
+    item = ("Evil Wand","A heavy black rod that pulses with malevolent intent.")
+    player = knight
+    pState = "HEALTHY"
+    hp_string = api_call.item_player_hpstat_update(item,knight,pState)
+    hp = json.loads(hp_string)
+    dhp, ehp = hp["description"], hp["effect"].lower()
+    print(dhp, "\n", ehp)
     """
 
 
 
-        
+    
 
 
-    
-    
 
 
 
