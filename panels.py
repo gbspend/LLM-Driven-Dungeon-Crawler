@@ -1,10 +1,11 @@
 import pygame
 import random
+import math
 from consts import *
 from text import TextBox
 
 class FightPanel:
-    def __init__(self, sprite_a, sprite_b, surface_size, topleft, font):
+    def __init__(self, sprite_a, sprite_b, surface_size, map_width, map_height, font):
         """
         sprite_a, sprite_b: 16x16 pygame.Surface objects
         surface_size: (w, h) bounds of animation area
@@ -15,14 +16,18 @@ class FightPanel:
         self.sprite_b = sprite_b
 
         self.surface_w, self.surface_h = surface_size
-        self.topleft = topleft
+        
+        map_rect = pygame.Rect(0,0,map_width,map_height)
+        surf_rect = pygame.Rect((0,0),surface_size)
+        surf_rect.center = map_rect.center
+        self.topleft = surf_rect.topleft
 
         self.surface = self._make_surf()
         ell_rect = pygame.Rect(0, self.surface_h//2 + 6, 60, 20)
         ell_rect.centerx = self.surface.get_rect().centerx
         strip_rect = pygame.Rect(0,0,self.surface_w-10,50)
         strip_rect.center = ell_rect.center
-        pygame.draw.ellipse(self.surface,(61,37,59),strip_rect)
+        pygame.draw.ellipse(self.surface,PANEL,strip_rect)
         pygame.draw.ellipse(self.surface,(86,59,65),ell_rect)
         
         font = pygame.font.Font("Book.ttf", 18)
@@ -53,10 +58,10 @@ class FightPanel:
         self.final_t = 12
         self.msg_show = False
         
-        box_w = (FIGHT_W - FIGHT_TXT_OFF)*GAME_SCALE
-        box_h = (FIGHT_H - FIGHT_TXT_OFF)*GAME_SCALE
-        box_x = (FIGHT_POS[0] + FIGHT_TXT_OFF//2)*GAME_SCALE
-        box_y = (FIGHT_POS[1] + FIGHT_TXT_OFF//2)*GAME_SCALE
+        box_w = (self.surface_w - FIGHT_TXT_OFF)*GAME_SCALE
+        box_h = (self.surface_h - FIGHT_TXT_OFF)*GAME_SCALE
+        box_x = (self.topleft[0] + FIGHT_TXT_OFF//2)*GAME_SCALE
+        box_y = (self.topleft[1] + FIGHT_TXT_OFF//2)*GAME_SCALE
         self.box = TextBox(font, pygame.Rect(0,0,box_w,box_h), WHITE, BG, (box_x,box_y),True)
         #TEMP
         self.box.add("The goblin warrior charges at the knight, swinging its crude sword wildly. The knight easily parries the goblin's attack and counterattacks with a powerful swing of his longsword, striking the goblin with a solid blow.")
@@ -200,3 +205,240 @@ class FightPanel:
     def draw_msg(self,window):
         if self.msg_show:
             self.box.render(window)
+
+class ItemUsePanel:
+    def __init__(self, sprite, surface_size, map_width, map_height):
+        self.sprite = sprite
+
+        self.surface_w, self.surface_h = surface_size
+        
+        map_rect = pygame.Rect(0,0,map_width,map_height)
+        surf_rect = pygame.Rect((0,0),surface_size)
+        surf_rect.center = map_rect.center
+        self.topleft = surf_rect.topleft
+
+        self.surface = self._make_surf()
+
+        self.center = pygame.Vector2(
+            self.surface_w // 2,
+            self.surface_h // 2 - 4
+        )
+
+        self.t = 0
+
+        # expanding rings
+        self.rings = []
+
+        # orbiting sparks
+        self.sparks = []
+        for _ in range(5):
+            self.sparks.append({
+                "angle": random.uniform(0, math.tau),
+                "radius": random.uniform(10, 18),
+                "speed": random.uniform(0.03, 0.08),
+                "size": random.randint(1, 2)
+            })
+
+        # pulse effect
+        self.pulse_timer = 0
+
+        # completion animation
+        self.done = False
+        self.finish_t = 0
+
+    def _make_surf(self):
+        surf = pygame.Surface(
+            (self.surface_w, self.surface_h),
+            pygame.SRCALPHA
+        )
+
+        surf.fill(BG)
+
+        pygame.draw.rect(
+            surf,
+            BORDER1,
+            (1, 1, self.surface_w - 2, self.surface_h - 2),
+            1
+        )
+
+        pygame.draw.rect(
+            surf,
+            BORDER2,
+            (0, 0, self.surface_w, self.surface_h),
+            1
+        )
+
+        for x, y in [
+            (4, 4),
+            (self.surface_w - 6, 4),
+            (4, self.surface_h - 6),
+            (self.surface_w - 6, self.surface_h - 6)
+        ]:
+            surf.set_at((x, y), BORDER1)
+
+        return surf
+
+    def end(self):
+        """
+        Call when threaded operation finishes.
+        """
+        self.done = True
+        self.finish_t = 30
+
+    def update(self):
+        self.t += 1
+
+        # Spawn rings
+        if not self.done:
+            if self.t % 12 == 0:
+                self.rings.append({
+                    "radius": 2,
+                    "max_radius": random.randint(22, 32)
+                })
+
+        # Update rings
+        new_rings = []
+
+        for ring in self.rings:
+            if self.done:
+                ring["radius"] *= 0.75
+            else:
+                ring["radius"] += 1.4
+
+            if ring["radius"] < ring["max_radius"]:
+                new_rings.append(ring)
+
+        self.rings = new_rings
+
+        # Update sparks
+        for spark in self.sparks:
+            if self.done:
+                spark["radius"] *= 0.93
+
+            spark["angle"] += spark["speed"]
+
+        self.pulse_timer = (self.pulse_timer + 1) % 40
+
+        # Finish animation countdown
+        if self.done and self.finish_t > 0:
+            self.finish_t -= 1
+
+    def render(self, window):
+        surf = self.surface.copy()
+
+        shadow_rect = pygame.Rect(0, 0, 16, 6)
+        shadow_rect.center = (
+            int(self.center.x),
+            int(self.center.y + 10)
+        )
+
+        pygame.draw.ellipse(
+            surf,
+            PANEL,
+            shadow_rect
+        )
+
+        pulse_phase = self.pulse_timer / 40.0
+
+        pulse_radius = int(8 + pulse_phase * 16)
+        pulse_alpha = int(60 * (1.0 - pulse_phase))
+
+        if pulse_alpha > 0:
+            pulse_surf = pygame.Surface(
+                (pulse_radius * 2 + 4, pulse_radius * 2 + 4),
+                pygame.SRCALPHA
+            )
+
+            pygame.draw.circle(
+                pulse_surf,
+                (120, 220, 255, pulse_alpha),
+                (pulse_radius + 2, pulse_radius + 2),
+                pulse_radius
+            )
+
+            surf.blit(
+                pulse_surf,
+                (
+                    self.center.x - pulse_radius - 2,
+                    self.center.y - pulse_radius - 2
+                )
+            )
+
+        for ring in self.rings:
+            r = int(ring["radius"])
+
+            alpha = int(
+                120 * (1.0 - (ring["radius"] / ring["max_radius"]))
+            )
+
+            if alpha <= 0:
+                continue
+
+            ring_surf = pygame.Surface(
+                (r * 2 + 4, r * 2 + 4),
+                pygame.SRCALPHA
+            )
+
+            pygame.draw.circle(
+                ring_surf,
+                (180, 240, 255, alpha),
+                (r + 2, r + 2),
+                r,
+                1
+            )
+
+            surf.blit(
+                ring_surf,
+                (
+                    self.center.x - r - 2,
+                    self.center.y - r - 2
+                )
+            )
+
+        for spark in self.sparks:
+            x = (
+                self.center.x +
+                math.cos(spark["angle"]) * spark["radius"]
+            )
+
+            y = (
+                self.center.y +
+                math.sin(spark["angle"] * 1.3) *
+                (spark["radius"] * 0.7)
+            )
+
+            pygame.draw.circle(
+                surf,
+                (220, 240, 255),
+                (int(x), int(y)),
+                spark["size"]
+            )
+
+        if self.done and self.finish_t > 0:
+            flash_alpha = int(
+                120 * (self.finish_t / 30)
+            )
+
+            flash = pygame.Surface(
+                (self.surface_w, self.surface_h),
+                pygame.SRCALPHA
+            )
+
+            flash.fill((255, 255, 255, flash_alpha))
+
+            surf.blit(flash, (0, 0))
+
+        bob_y = math.sin(self.t * 0.15) * 2
+
+        sprite_x = int(self.center.x - 8)
+        sprite_y = int(self.center.y - 8 + bob_y)
+
+        surf.blit(
+            self.sprite,
+            (sprite_x, sprite_y)
+        )
+
+        window.blit(
+            surf,
+            self.topleft
+        )

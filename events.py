@@ -4,7 +4,7 @@ from entities import load_sprites, get_name
 from concurrent.futures import ThreadPoolExecutor
 from characters import Character, Enemy
 from consts import *
-from fight import FightPanel
+from panels import FightPanel
 import logging
 
 #rewriting api interface to be threaded and more flexible

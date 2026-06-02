@@ -17,7 +17,7 @@ from tiles import TileMap
 from text import TextBox, Inventory
 from enum import Enum
 from entities import load_sprites, get_name
-from fight import FightPanel
+from panels import FightPanel, ItemUsePanel
 
 from events import Task,Chain
 from concurrent.futures import ThreadPoolExecutor
@@ -468,8 +468,9 @@ if __name__ == "__main__":
     last_enemy = None
     
     #TEST
-    sk = pygame.transform.flip(warrior_e[0],True,False)
+    fight_enemy = pygame.transform.flip(warrior_e[0],True,False)
     fight_panel = None
+    use_panel = None#ItemUsePanel(warrior_1[0], (USE_W,USE_H), map_width, map_height)
 
     # Game loop
     running = True
@@ -539,7 +540,7 @@ if __name__ == "__main__":
         fighting = game.update()
         if fighting and not(fight_panel):
             state = GameState.FIGHT
-            fight_panel = FightPanel(warrior_1[0], sk, (FIGHT_W,FIGHT_H),FIGHT_POS,base_font)
+            fight_panel = FightPanel(warrior_1[0], fight_enemy, (FIGHT_W, FIGHT_H), map_width, map_height, base_font)
         elif not(fighting) and fight_panel:
             fight_panel=None
             state = GameState.RUN
@@ -553,6 +554,9 @@ if __name__ == "__main__":
         
         if fight_panel:
             fight_panel.update()
+            
+        if use_panel:
+            use_panel.update()
         
         # Clear the screen
         screen.fill(BLACK)
@@ -576,6 +580,9 @@ if __name__ == "__main__":
         
         if fight_panel:
             fight_panel.render(game_surf)
+        
+        if use_panel:
+            use_panel.render(game_surf)
         
         screen.blit(pygame.transform.scale_by(game_surf,GAME_SCALE),(0,0))
         

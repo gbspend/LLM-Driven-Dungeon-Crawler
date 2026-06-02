@@ -14,8 +14,12 @@ BOB_TIME = 15
 #relative to game_surf
 FIGHT_W = 200
 FIGHT_H = 150
-FIGHT_POS = (50,50)
+FIGHT_Y = 50
 FIGHT_TXT_OFF = 30
+
+USE_W = 150
+USE_H = 150
+USE_Y = 50
 
 # colors
 WHITE   = (255, 255, 255)
