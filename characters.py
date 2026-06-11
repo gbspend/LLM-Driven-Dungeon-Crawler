@@ -37,18 +37,13 @@ class Character:
         self.off = 0
         self.t = 15
         self.weapons = [
-            ('Knife', 'A small dull knife.'),
-            ('Longsword', 'A well-forged longsword.'),
-            ('Dragon Slayer', 'A massive sword, magically empowered by slain dragons.'),
-            ('Faithful', 'A longsword, blessed by the church. Especially powerful against the undead.')
+            ('Spear', 'A simple but sharp long spear.'),
+            ('Longsword', 'A well-forged longsword.')
         ]
         self.weapon_i = 1 #weapon index
         self.items = [
-            ("Shimmering Potion", "A small flask of bright iridescent liquid."),
-            ("Singed Scroll","A scroll covered in ancient runes; the edges are charred."),
-            ("Evil Wand","A heavy black rod that pulses with malevolent intent."),
-            ("stink bomb","stink bomb no damage"),
-            ("bandage", "for healing")
+            ("Minor Healing Potion", "A small flask of shimmering crimson liquid."),
+            ("Singed Scroll","A scroll covered in ancient runes; the edges are charred.")
         ]
     
     def get_desc(self):
@@ -270,7 +265,6 @@ class Enemy:
                     if flip_facing:
                         self.face_right = not self.face_right
                     return t_pos, attack
-    print("dydckhft")
                     
     def get_rect(self):
         return self.sprites[0].get_rect(topleft=self.pos)

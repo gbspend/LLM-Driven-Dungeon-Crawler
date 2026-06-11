@@ -13,7 +13,7 @@ BOB_TIME = 15
 
 #relative to game_surf
 FIGHT_W = 200
-FIGHT_H = 150
+FIGHT_H = 200
 FIGHT_Y = 50
 FIGHT_TXT_OFF = 30
 

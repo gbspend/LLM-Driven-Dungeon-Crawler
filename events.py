@@ -68,7 +68,7 @@ class Chain:
             self.running = True
             curr.start(self.executor, self.last_result)
         else:
-            print("curr update:",self.i)
+            #print("curr update:",self.i)
             curr.update()
         if curr.done:
             self.running = False

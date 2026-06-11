@@ -129,7 +129,7 @@ class FightPanel:
 
     def end(self,text):
         self.box.add(text)
-        #self.box.add("Press C to continue")
+        self.box.add("Press any key...")
         self.stop = True
         
     def update(self):

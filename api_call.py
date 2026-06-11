@@ -884,13 +884,13 @@ def start_combat(player,enemy,enemies,tiles,textbox):
     
     if player_status.lower() != "unchanged":
         player.current_effects.append(player_status)
-        s = "The Knight is now: " + player_status
-        textbox.add(s)
+        #s = "The Knight is now: " + player_status
+        #textbox.add(s)
 
     if enemy_status.lower() != "unchanged":
         enemy.current_effects.append(enemy_status)
-        s = "The enemy is now: " + enemy_status
-        textbox.add(s)
+        #s = "The enemy is now: " + enemy_status
+        #textbox.add(s)
 
     if player_distance.lower() != "unchanged":  # push(target, pusher, dist, player, enemies, tiles)
         if player_distance.lower() == "increase":

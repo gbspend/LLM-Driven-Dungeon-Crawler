@@ -419,7 +419,11 @@ class Game:
 
     def state_update_enemy(self):
         for enemy in self.enemies:
-            enemy.pos, enemy_attack = enemy.move_enemy(enemy.pos, tiles_list, tile_size, player.pos, self.enemies, True)
+            move_return = enemy.move_enemy(enemy.pos, tiles_list, tile_size, player.pos, self.enemies, True)
+            if move_return is None:
+                continue
+            
+            enemy.pos, enemy_attack = move_return #fixed bug where move_enemy would return None sometimes
 
             # Enemy attacking player
             if enemy_attack:
@@ -447,7 +451,7 @@ if __name__ == "__main__":
 
     # Set up the screen
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("AI Roguelike")
+    pygame.display.set_caption("LLM Dungeon Crawler")
 
     # Text setup
     base_font = pygame.font.Font("Book.ttf", 17)
@@ -477,13 +481,13 @@ if __name__ == "__main__":
 
     # 16x16 sprites: adjust each coordinate by 16 to swap sprite
     default_pos = (0, 0)
-    warrior_1 = get_name(entity_anims,"Elf Lord")#char_spritesheet.get_sprite_pair(0,32)
-    warrior_e = get_name(entity_anims,"Goblin Fighter")#char_spritesheet.get_sprite_pair(80,32)
-    skel_g   = get_name(entity_anims,"Decrepit Bones")#char_spritesheet.get_sprite_pair(64,48)
-    skel_r   = get_name(entity_anims,"Grave Revenant")#char_spritesheet.get_sprite_pair(96,48)
-    necro_l  = get_name(entity_anims,"Goblin Occultist")#char_spritesheet.get_sprite_pair(32,48)
-    necro_g  = get_name(entity_anims,"Adept Necromancer")#char_spritesheet.get_sprite_pair(48,48)
-    bat_s = get_name(entity_anims,"Vampire Bat")#char_spritesheet.get_sprite_pair(16,48)
+    warrior_1 = get_name(entity_anims,"Elf Lord")
+    warrior_e = get_name(entity_anims,"Goblin Fighter")
+    skel_g    = get_name(entity_anims,"Decrepit Bones")
+    skel_r    = get_name(entity_anims,"Grave Revenant")
+    necro_l   = get_name(entity_anims,"Goblin Occultist")
+    necro_g   = get_name(entity_anims,"Adept Necromancer")
+    bat_s     = get_name(entity_anims,"Vampire Bat")
     
     # sprite list for random enemy spawns
     sprites = {name:anims for name,anims in entity_anims}
@@ -502,12 +506,9 @@ if __name__ == "__main__":
     tooltip = TextBox(base_font, pygame.Rect(0,0,TIP_WIDTH,TIP_HEIGHT), WHITE, BLACK)
     last_enemy = None
     
-    #TEST
     fight_enemy = pygame.transform.flip(warrior_e[0],True,False)
     fight_panel = None
     use_panel = None #ItemUsePanel(warrior_1[0], (USE_W,USE_H), map_width, map_height)
-
-    
 
     # Game loop
     running = True
@@ -540,55 +541,42 @@ if __name__ == "__main__":
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left mouse button
                 mouse_click = True
             elif event.type == pygame.KEYDOWN and state != GameState.FIGHT:
-                if event.key == pygame.K_i:
+                if fight_panel:
                     fight_panel = None
+                else:
+                    if event.key == pygame.K_i:
+                        if state == GameState.RUN:
+                            state = GameState.INV
+                            inv.prep(player)
+                        elif state == GameState.INV:
+                            state = GameState.RUN
+                    
                     if state == GameState.RUN:
-                        state = GameState.INV
-                        inv.prep(player)
-                    elif state == GameState.INV:
-                        state = GameState.RUN
-                
-                if state == GameState.RUN:
-                    # Cardinal direction movement
-                    if event.key == pygame.K_w:
-                        # state = ("MOVE", player, direction)
-                        fight_panel = None
-                        game.state_update_player(("MOVE", player, up))
-                    elif event.key == pygame.K_a:
-                        fight_panel = None
-                        game.state_update_player(("MOVE", player, left))
-                    elif event.key == pygame.K_s:
-                        fight_panel = None
-                        game.state_update_player(("MOVE", player, down))
-                    elif event.key == pygame.K_d:
-                        fight_panel = None
-                        game.state_update_player(("MOVE", player, right))
-                    # Skip turn
-                    elif event.key == pygame.K_SPACE:
-                        fight_panel = None
-                        game.state_update_player("SKIP")
-                        
-                    #-- TEMP ----------------------------------
-                    elif event.key == pygame.K_l:
-                        textBox.add("asdkfjhaslkdfj asjlkdfh lkajsdhf lkjashdf kjahsdf jkashdf kj hasd flkj hasdflkjh aslkdjfh alksjf asdf")
-                    elif event.key == pygame.K_c and fight_panel:
-                        print("FP STOP")
-                        #fight_panel.end()
-                        fight_panel = None
-                    #------------------------------------------
+                        # Cardinal direction movement
+                        if event.key == pygame.K_w:
+                            # state = ("MOVE", player, direction)
+                            game.state_update_player(("MOVE", player, up))
+                        elif event.key == pygame.K_a:
+                            game.state_update_player(("MOVE", player, left))
+                        elif event.key == pygame.K_s:
+                            game.state_update_player(("MOVE", player, down))
+                        elif event.key == pygame.K_d:
+                            game.state_update_player(("MOVE", player, right))
+                        # Skip turn
+                        elif event.key == pygame.K_SPACE:
+                            game.state_update_player("SKIP")
         
         mouse_pos = pygame.mouse.get_pos()
         game_mouse_pos = [v//GAME_SCALE for v in mouse_pos]
         if state != GameState.INV and state != GameState.GAMEOVER:
             state = game.update()
 
-
         if state == GameState.FIGHT and not(fight_panel):
             text_lock = False
             fight_panel = FightPanel(warrior_1[0], game.fight_enemy_sprite, (FIGHT_W, FIGHT_H), map_width, map_height, base_font)
         elif not(state == GameState.FIGHT) and fight_panel:
             if text_lock == False:
-                fight_panel.end(game.text_fp)#fight_panel=None
+                fight_panel.end(game.text_fp)
             text_lock = True
             
             if game.enemy_turn:
