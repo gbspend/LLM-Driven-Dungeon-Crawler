@@ -64,7 +64,7 @@ class FightPanel:
         box_y = (self.topleft[1] + FIGHT_TXT_OFF//2)*GAME_SCALE
         self.box = TextBox(font, pygame.Rect(0,0,box_w,box_h), WHITE, BG, (box_x,box_y),True)
         #TEMP
-        self.box.add("The goblin warrior charges at the knight, swinging its crude sword wildly. The knight easily parries the goblin's attack and counterattacks with a powerful swing of his longsword, striking the goblin with a solid blow.")
+        #self.box.add("The goblin warrior charges at the knight, swinging its crude sword wildly. The knight easily parries the goblin's attack and counterattacks with a powerful swing of his longsword, striking the goblin with a solid blow.")
     
     def _make_surf(self):
         surf = pygame.Surface((self.surface_w, self.surface_h), pygame.SRCALPHA)
@@ -127,10 +127,13 @@ class FightPanel:
                 strength,0
             )
 
-    def end(self):
+    def end(self,text):
+        self.box.add(text)
+        #self.box.add("Press C to continue")
         self.stop = True
         
     def update(self):
+        #print(self.msg_show)
         if self.done_a and self.done_b:
             if self.final_t > 0:
                 self.final_t -= 1

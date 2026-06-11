@@ -77,6 +77,9 @@ if __name__ == "__main__":
     enemy5 = Enemy('Greater Necromancer', 'A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.', 16, 16, 4, None)
 
     N = 10
+
+    a =api_call.combat_scenario(knight, enemy5)
+    print(a)
     """
     tests = [vsWeak, vsStrong, woundedVsGob, maimedVsGob, knifeVsGob, slayerVsGob]
     

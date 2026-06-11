@@ -206,6 +206,7 @@ class Enemy:
         self.i = 0
         self.t = BOB_TIME
         self.current_effects = []
+        self.last_fight = ""
     
     def get_state(self):
         return hp_state(self)
@@ -226,9 +227,10 @@ class Enemy:
         if distance_y == 0:
             correct_facing = (player_pos[0] - pos[0] > 0 and self.face_right) or\
                 (player_pos[0] - pos[0] < 0 and not self.face_right)
-        if ((distance_x == tile_size and distance_y == 0) or (distance_y == tile_size and distance_x == 0)) and turn is True and correct_facing:
+        if ((distance_x == tile_size and distance_y == 0) or (distance_y == tile_size and distance_x == 0)) and turn is True: # and correct_facing:
             attack = True
             return pos, attack
+        #print(self.name,(distance_x == tile_size and distance_y == 0), (distance_y == tile_size and distance_x == 0), turn, correct_facing)
         # randomly picking direction
         direction = random.choice([0, 1])
         dx = random.choice([-1, 1])
@@ -268,6 +270,7 @@ class Enemy:
                     if flip_facing:
                         self.face_right = not self.face_right
                     return t_pos, attack
+    print("dydckhft")
                     
     def get_rect(self):
         return self.sprites[0].get_rect(topleft=self.pos)
@@ -289,6 +292,7 @@ class Enemy:
         if self.current_effects:
             desc = desc + " With the current effects: "
 
+            #", ".join(self.current_effects)
             for i in range(len(self.current_effects)):
                 if i == 0:
                     desc = desc + str(self.current_effects[i])

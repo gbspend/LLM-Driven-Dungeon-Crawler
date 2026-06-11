@@ -63,7 +63,11 @@ def get_response2(prompt_str, model_str="llama-3.3-70b-versatile", incl_json=Tru
         return parse_json(response_str)
 
 def combat_scenario(player, enemy):
-    prompt_str = f'''Narratively describe the outcome of this combat scenario, given the name and description of the player character and enemy to engage. Keep the output brief, 1-3 sentences max.
+    prompt_str = f'''Narratively describe the outcome of this combat scenario, given the name and description of the player character and enemy to engage. 
+    Combat should follow typical turn-based RPG logic: characters should generally perform only one significant action during an exchange, enemies should not attack repeatedly without response, and combatants should not buff, heal, and attack simultaneously.
+    Status conditions should meaningfully affect performance, with injured or maimed combatants fighting less effectively than healthy ones.
+    If the "Past" field contains a previous combat exchange, use it to vary the narration and avoid repeating the same attacks, wording, or outcomes.
+    The response should be brief, consisting of 1-3 short sentences(try this: sentence 1: player turn what do they do and does it work?, sentence 2: enemy turn what do they do and does it work?).
 Example 1: 
 Player class: Knight
 Status: HEALTHY
@@ -71,6 +75,7 @@ Class description: A knight, armed with a spear. A powerful melee combatant.
 Enemy: Skeleton Grunt
 Status: MAIMED
 Enemy description: A weak skeleton, armed with a knife.
+Past:
 Output: The knight pierces the skull of the skeleton grunt with his spear, destroying it.
 Example 2: 
 Player class: Mage
@@ -79,6 +84,7 @@ Class description: A mage, armed with a staff. Weak in melee combat, but a power
 Enemy: Reaper
 Status: HEALTHY
 Enemy description: The skeleton of a strong warrior, armed with a scythe.
+Past:
 Output: The mage blasts the reaper with a fireball. The now-charred reaper surges forward and cuts a deep gash in the mage's arm.
 Current scenario:
 Player class: {player.name}
@@ -87,6 +93,7 @@ Class description: {player.get_desc()}
 Enemy: {enemy.name}
 Status: {enemy.get_state()}
 Enemy description: {enemy.get_desc()}
+Past: {enemy.last_fight}
 Output: '''
 
     return get_response2(prompt_str, incl_json=False)
@@ -193,7 +200,7 @@ def combat_state_update_alt(player, enemy, pStatus = "HEALTHY", eStatus = "HEALT
        Enemy: Skeleton Grunt
        Status: HEALTHY
        Enemy description: A weak skeleton, armed with a knife.
-       Output: The knight pierces the skull of the skeleton grunt with his spear, destroying it. DEALT: FATAL, RECEIVED: NONE
+       Output: {{"description": "The knight pierces the skull of the skeleton grunt with his spear, destroying it.", "DEALT": "FATAL", "RECEIVED": "NONE"}}
        Example 2: 
        Player class: Mage
        Status: HEALTHY
@@ -201,10 +208,10 @@ def combat_state_update_alt(player, enemy, pStatus = "HEALTHY", eStatus = "HEALT
        Enemy: Reaper
        Status: HEALTHY
        Enemy description: The skeleton of a strong warrior, armed with a scythe.
-       Output: The mage blasts the reaper with a fireball. The now charred reaper shambles back to its feet, missing an arm. It is too far from the mage to retaliate. DEALT: HIGH, RECEIVED: NONE
+       Output: {{"description": "The mage blasts the reaper with a fireball. The now charred reaper shambles back to its feet, missing an arm. It is too far from the mage to retaliate.", "DEALT": "HIGH", "RECEIVED": "NONE"}}
        Using the format from the examples, run a combat scenario with the {pStatus} player {player.name}, with the description {player.get_desc()}, attacking a {eStatus} enemy {enemy.name}, with the description {enemy.get_desc()}.'''
 
-    return get_response(prompt_str, verb=verb), enemy
+    return get_response2(prompt_str), enemy
 
 def combat_state_update_enemy(player, enemy, pStatus = "HEALTHY", eStatus = "HEALTHY"):
     prompt_str = f'''Resolve this video game combat scenario, given the name and description of the player character and enemy to engage. Adjust the strength of the player and enemy based on their status: HEALTHY, WOUNDED, or MAIMED.
@@ -242,7 +249,7 @@ def combat_state_update_necro(player, enemy, pStatus = "HEALTHY", eStatus = "HEA
        Enemy: Necromancer
        Status: HEALTHY
        Enemy description: A necromancer. Weak on its own, but capable of calling more undead to aid it.
-       Output: The knight charges the necromancer with his spear, interrupting its spell and knocking it down. The necromancer floats back to its feet, summoning undead to defend it. DEALT: MEDIUM, RECEIVED: NONE
+       Output: {{"description": "The knight charges the necromancer with his spear, interrupting its spell and knocking it down. The necromancer floats back to its feet, summoning undead to defend it.", "DEALT": "MEDIUM", "RECEIVED": "NONE"}}
        Example 2: 
        Player class: Mage
        Status: WOUNDED
@@ -250,10 +257,10 @@ def combat_state_update_necro(player, enemy, pStatus = "HEALTHY", eStatus = "HEA
        Enemy: Greater Necromancer
        Status: HEALTHY
        Enemy description: A powerful necromancer, skilled in offensive magic and capable of calling undead to aid it.
-       Output: The mage shoots a fireball at the greater necromancer, but his wounds affect its strength. The necromancer diverts the blast with a barrier, receiving minimal damage. The necromancer retaliates with a wave of dark energy, which the mage also blocks. It then summons a wave of undead warriors. DEALT: LOW, RECEIVED: LOW
+       Output: {{"description": "The mage shoots a fireball at the greater necromancer, but his wounds affect its strength. The necromancer diverts the blast with a barrier, receiving minimal damage. The necromancer retaliates with a wave of dark energy, which the mage also blocks. It then summons a wave of undead warriors.", "DEALT": "LOW", "RECEIVED": "LOW"}}
        Using the format from the examples, run a combat scenario with the {pStatus} player {player.name}, with the description {player.get_desc()}, attacking a {eStatus} enemy {enemy.name}, with the description {enemy.get_desc()}.'''
 
-    return get_response(prompt_str), enemy
+    return get_response2(prompt_str), enemy
 
 #======================================= summoning/reinforcement ========================================================
 
@@ -262,8 +269,8 @@ def enemy_summon_count(scenario):
     prompt_str = f'''Read this scenario {scenario}. If it explicitly states the enemy has called reinforcements, determine the number of enemies to be summoned.
         If enemies are summoned, the number of enemies should be 1 at minimum, or 3 at maximum. If no reinforcements are directly mentioned, provide 0 for the number of each enemy.
         Format the enemy count like so:
-        Enemies: 2'''
-    return get_response(prompt_str)
+        {{"Enemies": 2}}'''
+    return get_response2(prompt_str)
 
 def parse_reinforcement(reinforcements):
   # Initializing enemy2 and enemy3 to 0, as they may not exist in the reinforcement instructions
@@ -303,38 +310,51 @@ def parse_reinforcement(reinforcements):
 
 def generate_reinforcement(scenario, count):
     prompt_str = f'''Based on the following combat scenario where the enemy calls for reinforcements, create appropriate enemies to be summoned.
+    There will always be 3 or less enemys 
+    if less than 3 just put "NONE" in the remaining slots
     Scenario: {scenario}
     Examples: Here are some example enemies and their descriptions:
         Format the enemies like so:
-        Enemy 1: Skeleton Grunt, A weak skeleton, armed with a knife.
-        Enemy 2: Reaper, The skeleton of a strong warrior, armed with a scythe.
-        Create a maximum of {count} enemies.'''
-    return get_response(prompt_str)
+        {{
+        "Enemy 1" : "Skeleton Grunt", 
+        "Enemy 1 des" : "A weak skeleton, armed with a knife.",
+        "Enemy 2" : "Reaper", 
+        "Enemy 2 des": "The skeleton of a strong warrior, armed with a scythe."
+        "Enemy 3" : "NONE", 
+        "Enemy 3 des": "NONE"
+        }}
+        Create {count} enemies.'''
+    return get_response2(prompt_str)
 
 def parse_sprite(name, desc, sprites):
     sprite_name_list = list(sprites.keys())
-    prompt_str = f"Given the name {name} and description {desc} of an enemy, select the sprite from the following list whose name suits that enemy the best. Respond with only the name of the sprite. List: {sprite_name_list}"
-    output = get_response(prompt_str)
+    prompt_str = f"""Given the name {name} and description {desc} of an enemy, select the sprite from the following list whose name suits that enemy the best. Respond with only the name of the sprite (e.g. {{"sprite": "sprite name"}}). List: {sprite_name_list}"""
+    output = get_response2(prompt_str)["sprite"]
     for sprite in sprites:
         if sprite in output:
             return sprites[sprite]
 
 def enemy_generator(scenario, enemy_count, sprites):
-  scenario = scenario.split("DEALT")[0]
+  #scenario = scenario.split("DEALT")[0]
   # Determining number of enemies
   # Creating unique enemies
   reinforcements = generate_reinforcement(scenario, enemy_count)
+  print(reinforcements)
+  print(type(reinforcements))
+
+  e1,e2,e3 = (reinforcements["Enemy 1"], reinforcements["Enemy 1 des"]),(reinforcements["Enemy 2"], reinforcements["Enemy 2 des"]),(reinforcements["Enemy 3"], reinforcements["Enemy 3 des"])
+
   # Getting API output into usable form
-  e1, e2, e3 = parse_reinforcement(reinforcements)
+  #e1, e2, e3 = parse_reinforcement(reinforcements)
   # Selecting sprites, or returning if there are no enemies left to select for
   e1sprite = parse_sprite(e1[0], e1[1], sprites)
   enemy1 = (e1[0], e1[1], e1sprite)
-  if e2 != 0:
+  if e2[0] != "NONE":
     e2sprite = parse_sprite(e2[0], e2[1], sprites)
     enemy2 = (e2[0], e2[1], e2sprite)
   else:
     return enemy1, 0, 0
-  if e3 != 0:
+  if e3[0] != "NONE":
     e3sprite = parse_sprite(e3[0], e3[1], sprites)
     enemy3 = (e3[0], e3[1], e3sprite)
     return enemy1, enemy2, enemy3
@@ -360,7 +380,7 @@ def drop_item_update(dropchance):
 
    here is the dropchance: {dropchance}
    """
-   return get_response(prompt_str)
+   return get_response2(prompt_str)
 
 def item_type_update_JSON(enemy):
     return json.loads(item_type_update(enemy))
@@ -379,7 +399,7 @@ def item_type_update(enemy):
 
    Using the format from the examples, run a scenario with this enemy: {enemy.name} and the following description: {enemy.description}.
    """
-   return get_response(prompt_str)
+   return get_response2(prompt_str)
     
 def item_spawn_item_update(enemy):
     prompt_str = f"""the scenario is an enemy has just died and has dropped a Item.
@@ -399,7 +419,7 @@ def item_spawn_item_update(enemy):
     
     Using the format from the examples, run a scenario with this enemy: {enemy.name} and the following description: {enemy.description}.'''
     """
-    return get_response(prompt_str)
+    return get_response2(prompt_str)
 
 
 def item_spawn_weapon_update(enemy):
@@ -421,13 +441,11 @@ def item_spawn_weapon_update(enemy):
 
     Using the format from the examples, run a scenario with this enemy: {enemy.name} and the following description: {enemy.description}.'''
     """
-    return get_response(prompt_str)
+    return get_response2(prompt_str)
 
 
 def make(Type,FType,enemy,player):
-    weapon_string = FType(enemy)
-    print(weapon_string)
-    weapon = json.loads(weapon_string)
+    weapon = FType(enemy)
     weapon_and_description = (weapon["drops"],weapon["description"])
 
     if Type["type"].lower() == "weapon":
@@ -441,16 +459,13 @@ def make(Type,FType,enemy,player):
    
 def gen_item(enemy,player=0,count=4):
     print(count)
-    diditdrop_string = drop_item_update(count)
-    print(diditdrop_string)
-    diditdrop = json.loads(diditdrop_string)
-    print(diditdrop)
 
+    # diditdrop = drop_item_update(count)
+    diditdrop = {"drop":"yes"}
     if diditdrop["drop"].lower() == "no":
         return "N","N"
-    Type_string = item_type_update(enemy)
-    print(Type_string)
-    Type = json.loads(Type_string)
+
+    Type = item_type_update(enemy)
 
     if Type["type"].lower() == "weapon":
        wandd = make(Type,item_spawn_weapon_update,enemy,player)
@@ -477,7 +492,7 @@ def item_picktarget_update(item_and_description):
 
     Using the format from the examples, run a scenario with this Item: {item_and_description[0]} and the following description: {item_and_description[1]}.
     """
-   return get_response(prompt_str)
+   return get_response2(prompt_str)
 
 #-------------------------
 def item_enemystat_update(item_and_description):
@@ -507,7 +522,7 @@ def item_enemystat_update(item_and_description):
     
     Using the format from the examples, run a scenario with this Item: {item_and_description[0]} and the following description: {item_and_description[1]}.
     """
-    return get_response(prompt_str)
+    return get_response2(prompt_str)
 
 
 def item_playerstat_update(item_and_description):
@@ -537,7 +552,7 @@ def item_playerstat_update(item_and_description):
     
     Using the format from the examples, run a scenario with this Item: {item_and_description[0]} and the following description: {item_and_description[1]}.
     """
-    return get_response(prompt_str)
+    return get_response2(prompt_str)
 
 #-------------------------
 def item_enemy_descriptionstat_update(item_and_description,enemy):
@@ -572,7 +587,7 @@ def item_enemy_descriptionstat_update(item_and_description,enemy):
     
     Using the format from the examples, run a scenario with this Item: {item_and_description[0]} and the following description: {item_and_description[1]}.
     and the enemy being targeted: {enemy.name}"""
-    return get_response(prompt_str)
+    return get_response2(prompt_str)
 
 
 def item_player_descriptionstat_update(item_and_description, player):
@@ -608,7 +623,7 @@ def item_player_descriptionstat_update(item_and_description, player):
     and the player being affected: {player.name}
     """
     
-    return get_response(prompt_str)
+    return get_response2(prompt_str)
 
 #-------------------------
 def item_enemy_hpstat_update(item_and_description, enemy, eState):
@@ -640,7 +655,7 @@ def item_enemy_hpstat_update(item_and_description, enemy, eState):
     and this enemy: {enemy.name} description: {enemy.get_desc} Current enemy state: {eState}
 
     """
-    return get_response(prompt_str)
+    return get_response2(prompt_str)
 
 def item_player_hpstat_update(item_and_description, player, tState=0):
     prompt_str = f""""An item has just been used by the player and will affect the player and change the player's hp.
@@ -664,7 +679,7 @@ def item_player_hpstat_update(item_and_description, player, tState=0):
     this Item: {item_and_description[0]} description: {item_and_description[1]}
     and this player: {player.name}
     """
-    return get_response(prompt_str)
+    return get_response2(prompt_str)
 
 #========================
 
@@ -678,14 +693,12 @@ def use_item(item_and_description,enemies,player):
         dbuff, ebuff = use_item_description(item_and_description,target,target_type)
         return dbuff, stat, ebuff, target, item_and_description
     else:
-        dhp, ehp =use_item_hp(item_and_description,target,target_type)
+        dhp, ehp = use_item_hp(item_and_description,target,target_type)
         return dhp, stat, ehp, target, item_and_description
 
 
 def use_item_target(item_and_description,enemies,player):
-    target_string = item_picktarget_update(item_and_description)
-    #print(target_string)
-    target = json.loads(target_string)["Target"]
+    target = item_picktarget_update(item_and_description)["Target"]
     
     if target.lower() == "enemy": # item will effect enemy
         inrange = []
@@ -709,13 +722,9 @@ def use_item_target(item_and_description,enemies,player):
 
 def use_item_stat(item_and_description,target_type):
     if target_type == "E":
-        stat_string = item_enemystat_update(item_and_description)
-        #print(stat_string)
-        stat = json.loads(stat_string)["Stat"]
+        stat = item_enemystat_update(item_and_description)["Stat"]
     else:
-        stat_string = item_playerstat_update(item_and_description)
-        #print(stat_string)
-        stat = json.loads(stat_string)["Stat"]
+        stat = item_playerstat_update(item_and_description)["Stat"]
     return stat.lower()
     
 
@@ -725,8 +734,7 @@ def use_item_description(item_and_description,target,target_type):
     else:
         descriptionstat_update = item_player_descriptionstat_update
 
-    buff_string = descriptionstat_update(item_and_description,target)
-    buff = json.loads(buff_string)
+    buff = descriptionstat_update(item_and_description,target)
     dbuff, ebuff = buff["description"], buff["effect"]
 
     #print(dbuff, ebuff)
@@ -744,9 +752,7 @@ def use_item_hp(item_and_description,target,target_type):
     
     tState = target.get_state()
     #print(tState)
-    hp_string = hpstat_update(item_and_description,target,tState)
-    print(hp_string)
-    hp = json.loads(hp_string)
+    hp = hpstat_update(item_and_description,target,tState)
     #print(hp)
     dhp, ehp = hp["description"], hp["effect"].lower()
 
@@ -814,16 +820,14 @@ def post_combat_update(scenario):
     }}
     Using the format from the examples, run this: "{scenario}" scenario
     """
-    return get_response(prompt_str)
+    return get_response2(prompt_str)
 
 def post_combat(scenario,player,target,tiles,enemies):
     if not(target in enemies) or player.hp <= 0:
         return 
   
     effect = 1
-    post_combat_string = post_combat_update(scenario)
-    print(post_combat_string)
-    post_combat = json.loads(post_combat_string)
+    post_combat = post_combat_update(scenario)
     print(post_combat)
     if post_combat["enemypushed"].lower() == "yes":
         hit_something_e = push(target,player,2,player,enemies,tiles)
@@ -847,3 +851,62 @@ def push(target, pusher, dist, player, enemies, tiles):
             return True
         target.pos = dest
     return False
+#=================================================================================
+
+
+def combat_vars_together(player,enemy,scen):
+    prompt_str = f'''Based on the following scenario, how should these video game state variable change? Return a JSON object with an entry for each variable. 
+    Mark hp variables: a damage value of LOW, MEDIUM, or HIGH. If the player or enemy is defeated, the dealt or received value should be FATAL. If the player or enemy avoids an attack, the dealt or received value should be NONE.
+    Mark distance variables: unchanged, increase, or greatly increase. This is how far each (player, enemy) should be pushed back.
+    Mark count variables: 0, 1, 2, or 3. if new enemys are called/summoned
+    Mark status variables with "unchanged" or a single word like burned. 
+    Here are the variables: {POSSIBLE_VARS}.
+    Example: 
+    Player: Mage
+    Enemy: Reaper
+    Output: The mage blasts the reaper with a fireball. The now-charred reaper surges forward and cuts a deep gash in the mage's arm.
+    Variables: {{"player_hp": "HIGH", "player_status": "unchanged", "player_distance": "unchanged", "enemy_hp": "MEDIUM", "enemy_status": "burned", "enemy_distance": "unchanged", "enemy_count": 0}}
+    Current:
+    Player: {player.name}
+    Enemy: {enemy.name}
+    Scenario: {scen}
+    Variables: '''
+    return get_response2(prompt_str, incl_json=True)
+
+def start_combat(player,enemy,enemies,tiles,textbox):
+    #scen = "The warrior swings his longsword in a wide arc, attempting to strike the bat as it darts and weaves through the air, but the agile creature narrowly avoids the blade. The bat retaliates by swooping down and raking its sharp claws across the warrior's chest, leaving shallow gashes."
+    scen = combat_scenario(player, enemy) # make scenario
+    vars = combat_vars_together(player,enemy,scen) # how does scenario change things
+    player_hp, player_status, player_distance = vars["player_hp"],vars["player_status"],vars["player_distance"] # player changes
+    enemy_hp, enemy_status, enemy_distance  = vars["enemy_hp"],vars["enemy_status"],vars["enemy_distance"] # enemy changes
+    enemy_count = vars["enemy_count"] # other changes
+    print(vars)
+    
+    if player_status.lower() != "unchanged":
+        player.current_effects.append(player_status)
+        s = "The Knight is now: " + player_status
+        textbox.add(s)
+
+    if enemy_status.lower() != "unchanged":
+        enemy.current_effects.append(enemy_status)
+        s = "The enemy is now: " + enemy_status
+        textbox.add(s)
+
+    if player_distance.lower() != "unchanged":  # push(target, pusher, dist, player, enemies, tiles)
+        if player_distance.lower() == "increase":
+            push(player, enemy, 2, player, enemies, tiles)
+        if player_distance.lower() == "greatly increase":
+            push(player, enemy, 3, player, enemies, tiles)
+
+    if enemy_distance.lower() != "unchanged":
+        if enemy_distance.lower() == "increase":
+            push(enemy, player, 2, player, enemies, tiles)
+        if enemy_distance.lower() == "greatly increase":
+            push(enemy, player, 3, player, enemies, tiles)
+    
+    if enemy_count != 0:
+        summon = True
+    else:
+        summon = False
+    print(player_hp, enemy_hp, summon, enemy_count, scen)
+    return player_hp, enemy_hp, summon, enemy_count, scen
