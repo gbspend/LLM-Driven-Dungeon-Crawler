@@ -59,7 +59,7 @@ class Game:
         self.set_state = GameState.RUN
 
         self.fight_enemy_sprite =  pygame.transform.flip(warrior_e[0],True,False)
-        self.text_fp = "Nothing to see here"
+        self.text_p = "Nothing to see here"
            
 
     def spawn_enemy(self, enemy, fair_distance, collision_list):
@@ -76,18 +76,18 @@ class Game:
                 return
 
     def combat_handler(self, combat_enemy, scen,dealt,received):
-        self.textBox.add(scen)
+        #self.textBox.add(scen)
         # parsing combat damage instructions
         #dealt, received = parse_damage(instructions)
         # providing damage value based on API instruction
         if dealt == "FATAL":
             dmg = combat_enemy.max_hp
         elif dealt == "HIGH":
-            dmg = int(combat_enemy.max_hp * 0.7)
+            dmg = int(combat_enemy.max_hp * 0.7) # min 2
         elif dealt == "MEDIUM":
             dmg = int(combat_enemy.max_hp * 0.4)
         elif dealt == "LOW":
-            dmg = int(combat_enemy.max_hp * 0.2)
+            dmg = int(combat_enemy.max_hp * 0.3) # max 4
         # dealt == "NONE"
         else:
             dmg = 0
@@ -95,11 +95,11 @@ class Game:
         if received == "FATAL":
             rec = self.player.max_hp
         elif received == "HIGH":
-            rec = int(self.player.max_hp * 0.7)
+            rec = int(self.player.max_hp * 0.4) # min 3
         elif received == "MEDIUM":
-            rec = int(self.player.max_hp * 0.4)
+            rec = int(self.player.max_hp * 0.3)
         elif received == "LOW":
-            rec = int(self.player.max_hp * 0.2)
+            rec = int(self.player.max_hp * 0.1) # max 10
         # received == "NONE"
         else:
             rec = 0
@@ -126,7 +126,7 @@ class Game:
         return False
     
     def item_spawn(self,enemy):
-        new_item, new_item_Type = api_call.gen_item(enemy,self.player,self.dropchance)
+        new_item, new_item_Type = api_call.gen_item(enemy,self.player,self.dropchance,self.text_p)
         if new_item != "N":
             textBox.add("you got a new " + new_item_Type)
             textBox.add(new_item[0])
@@ -272,11 +272,11 @@ class Game:
         d, stat, effect, target, item = result
         if d == False:
             print(item)
-            textBox.add("Nothing in range")
+            self.text_p = "Nothing in range"
             player.items.append(item)
 
         else:
-            textBox.add(d)
+            self.text_p = d
             if stat == "description":
                 textBox.add(
                     "The " + target.name + " is now: " + effect
@@ -305,7 +305,7 @@ class Game:
         print(result)
         instructions, target  = result
         scen,dealt,received = instructions["description"], instructions["DEALT"],instructions["RECEIVED"]
-        self.text_fp = scen
+        self.text_p = scen
         print(target, instructions)
         EnemyDie = self.combat_handler(target, scen,dealt,received)
         api_call.post_combat(scen,self.player,target,tiles_list,self.enemies)
@@ -316,6 +316,9 @@ class Game:
 
     def reinforcement(self, order):
         # Spawning reinforcement enemy
+        if order[1] == 0: # failed
+            print("failed to summon")
+            return
         temp_enemy = Enemy(order[1][0], order[1][1], 10, 10, default_pos, order[1][2])
         #print(temp_enemy.name, temp_enemy.description)
         self.spawn_enemy(temp_enemy, self.fair_distance, self.collision_list)
@@ -349,7 +352,7 @@ class Game:
         if summon:
             e1, e2, e3 = api_call.enemy_generator(scen, enemy_count, self.re_sprites)
             self.reinforcement(("NECRO", e1, e2, e3))
-        self.text_fp = scen
+        self.text_p = scen
         target.last_fight = scen
         EnemyDie = self.combat_handler(target, scen,enemy_hp,player_hp)
         if EnemyDie:
@@ -540,9 +543,15 @@ if __name__ == "__main__":
                 running = False
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left mouse button
                 mouse_click = True
-            elif event.type == pygame.KEYDOWN and state != GameState.FIGHT:
+            elif event.type == pygame.KEYDOWN and state != GameState.FIGHT and state != GameState.ITEM:
                 if fight_panel:
+                    textBox.add(fight_panel.note)
                     fight_panel = None
+
+                elif use_panel:
+                    textBox.add(use_panel.note)
+                    use_panel = None
+
                 else:
                     if event.key == pygame.K_i:
                         if state == GameState.RUN:
@@ -565,6 +574,10 @@ if __name__ == "__main__":
                         # Skip turn
                         elif event.key == pygame.K_SPACE:
                             game.state_update_player("SKIP")
+
+                if game.enemy_turn:
+                    game.state_update_enemy()
+                    game.enemy_turn = False
         
         mouse_pos = pygame.mouse.get_pos()
         game_mouse_pos = [v//GAME_SCALE for v in mouse_pos]
@@ -576,21 +589,23 @@ if __name__ == "__main__":
             fight_panel = FightPanel(warrior_1[0], game.fight_enemy_sprite, (FIGHT_W, FIGHT_H), map_width, map_height, base_font)
         elif not(state == GameState.FIGHT) and fight_panel:
             if text_lock == False:
-                fight_panel.end(game.text_fp)
+                fight_panel.end(game.text_p)
             text_lock = True
             
-            if game.enemy_turn:
-                game.state_update_enemy()
-                game.enemy_turn = False
+            #if game.enemy_turn:
+            #    game.state_update_enemy()
+            #    game.enemy_turn = False
 
         if state == GameState.ITEM and not(use_panel):
+            text_lock = False
             use_panel = ItemUsePanel(warrior_1[0], (USE_W,USE_H), map_width, map_height)
         elif not(state == GameState.ITEM) and use_panel:
-            use_panel=None
-            state = GameState.RUN
-            if game.enemy_turn:
-                game.state_update_enemy()
-                game.enemy_turn = False
+            if text_lock == False:
+                use_panel.end(game.text_p)
+            text_lock = True
+            #if game.enemy_turn:
+            #    game.state_update_enemy()
+            #    game.enemy_turn = False
 
         #print(state,fight_panel)
         #--RENDER & UPDATE------------------------------
@@ -661,6 +676,9 @@ if __name__ == "__main__":
         
         if fight_panel:
             fight_panel.draw_msg(screen)
+        
+        if use_panel:
+            use_panel.draw_msg(screen)
         
         # Update the display
         pygame.display.flip()

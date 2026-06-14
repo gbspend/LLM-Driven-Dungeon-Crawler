@@ -129,6 +129,7 @@ class FightPanel:
 
     def end(self,text):
         self.box.add(text)
+        self.note = text
         self.box.add("Press any key...")
         self.stop = True
         
@@ -249,6 +250,18 @@ class ItemUsePanel:
         self.done = False
         self.finish_t = 0
 
+        font = pygame.font.Font("Book.ttf", 18)
+        self.msg_show = False
+        box_w = (self.surface_w - FIGHT_TXT_OFF)*GAME_SCALE
+        box_h = (self.surface_h - FIGHT_TXT_OFF)*GAME_SCALE
+        box_x = (self.topleft[0] + FIGHT_TXT_OFF//2)*GAME_SCALE
+        box_y = (self.topleft[1] + FIGHT_TXT_OFF//2)*GAME_SCALE
+        self.box = TextBox(font, pygame.Rect(0,0,box_w,box_h), WHITE, BG, (box_x,box_y),True)
+
+    def draw_msg(self,window):
+        if self.msg_show:
+            self.box.render(window)
+
     def _make_surf(self):
         surf = pygame.Surface(
             (self.surface_w, self.surface_h),
@@ -281,10 +294,14 @@ class ItemUsePanel:
 
         return surf
 
-    def end(self):
+    def end(self,text):
         """
         Call when threaded operation finishes.
         """
+        self.box.add(text)
+        self.note = text
+        self.box.add("Press any key...")
+        self.msg_show = True
         self.done = True
         self.finish_t = 30
 
@@ -327,6 +344,9 @@ class ItemUsePanel:
             self.finish_t -= 1
 
     def render(self, window):
+        if self.msg_show:
+            window.blit(self.surface, self.topleft)
+            return
         surf = self.surface.copy()
 
         shadow_rect = pygame.Rect(0, 0, 16, 6)

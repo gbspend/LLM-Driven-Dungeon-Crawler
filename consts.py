@@ -17,8 +17,8 @@ FIGHT_H = 200
 FIGHT_Y = 50
 FIGHT_TXT_OFF = 30
 
-USE_W = 150
-USE_H = 150
+USE_W = 200
+USE_H = 200
 USE_Y = 50
 
 # colors

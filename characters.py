@@ -201,7 +201,7 @@ class Enemy:
         self.i = 0
         self.t = BOB_TIME
         self.current_effects = []
-        self.last_fight = ""
+        self.last_fight = "no past yet so anything goes"
     
     def get_state(self):
         return hp_state(self)
