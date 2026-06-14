@@ -394,7 +394,7 @@ def enemy_generator(scenario, enemy_count, sprites,tryc=0):
         tryc +=1
         if tryc > 4:
             return 0,0,0
-        enemy_generator(scenario, enemy_count, sprites,tryc)
+        return enemy_generator(scenario, enemy_count, sprites,tryc)
   
 #===================================================== item gen =============================
 
