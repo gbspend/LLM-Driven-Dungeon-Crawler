@@ -73,7 +73,7 @@ class TileMap:
         
         if obj_fname:
             obj_grid = read_csv(obj_fname)
-            fire = Spritesheet("fire.png")
+            fire = Spritesheet("bg/fire.png")
             obj_anims = {}
             obj_anims["T"] = [fire.get_sprite_rc(3,c) for c in range(4)]
             obj_anims["C"] = [fire.get_sprite_rc(1,c) for c in range(1,4)]
@@ -135,7 +135,7 @@ class TileMap:
             surf = spritesheet.get_sprite(tile_x, tile_y)
             self.bg.blit(surf,(x,y))
         #just for fun :)
-        carpet_surf = pygame.image.load("carpet2.png").convert_alpha()
+        carpet_surf = pygame.image.load("bg/carpet2.png").convert_alpha()
         carpet_surf.set_alpha(150)
         self.bg.blit(carpet_surf,(96,216))
             

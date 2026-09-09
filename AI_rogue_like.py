@@ -465,8 +465,7 @@ if __name__ == "__main__":
     textBox = TextBox(text_font,pygame.Rect(0,0, TEXT_WIDTH, SCREEN_HEIGHT), WHITE, BLACK, text_pos)
 
     # Spritesheet
-    tile_spritesheet = Spritesheet('Dungeon_Tileset.png')
-    #char_spritesheet = Spritesheet('Dungeon_character.png')
+    tile_spritesheet = Spritesheet('bg/Dungeon_Tileset.png')
 
     # Loading map tile
     tilemap = TileMap('test_tile2.csv', tile_spritesheet, 'objs2.csv')

@@ -38,9 +38,9 @@ def parse_json(resp):
     i,j = indices
     return json.loads(resp[i:j])
 
-#llama-3.3-70b-versatile
-#llama-3.1-8b-instant
-def get_response2(prompt_str, model_str="llama-3.1-8b-instant", incl_json=True, tryc = 0):
+#Groq decomissioned Llama 3.1 on August 16, 2026
+
+def get_response2(prompt_str, model_str="openai/gpt-oss-20b", incl_json=True, tryc = 0):
     logger.info("PROMPT:\n"+prompt_str)
     completion = client.chat.completions.create(
         model=model_str,
