@@ -2,6 +2,13 @@ Simple 2D dungeon crawler game with game mechanics (state updates) implemented w
 
 <img align="center" width="600" height="387" alt="image" src="https://github.com/user-attachments/assets/226b2b6b-8251-4056-8d4f-14255fd0ea23" />
 
+### Installation
+
+* run `pip install -r requirements.txt`
+* create `secret.py` containing `KEY = "<your groq key"`
+	* You can create a free Groq API key by following the Quickstart instructions at https://console.groq.com/docs/quickstart
+* run `python AI_rogue_like.py`
+
 ### Publication
 Spendlove, B., and Kline, D. 2026. An Initial Design for Generative Game Mechanics via LLM Function Emulation. In _Proceedings of the 17th International Conference on Computational Creativity_.
 
