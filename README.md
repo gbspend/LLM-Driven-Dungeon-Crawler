@@ -4,8 +4,9 @@ Simple 2D dungeon crawler game with game mechanics (state updates) implemented w
 
 ### Installation
 
+* clone this repo
 * run `pip install -r requirements.txt`
-* create `secret.py` containing `KEY = "<your groq key"`
+* create `secret.py` containing `KEY = "<your groq key>"`
 	* You can create a free Groq API key by following the Quickstart instructions at https://console.groq.com/docs/quickstart
 * run `python AI_rogue_like.py`
 
