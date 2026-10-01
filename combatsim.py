@@ -111,7 +111,7 @@ if __name__ == "__main__":
     itemlist = []
     try:
         for i in range(N):
-            new_item, new_item_Type = api_call.gen_item(enemy,knight,drop_chance)
+            new_item, new_item_Type = api_call.gen_item(enemy,drop_chance)
             if new_item == "N":
                 j += 1
                 continue

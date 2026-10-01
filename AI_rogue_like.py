@@ -63,13 +63,17 @@ class Game:
            
 
     def spawn_enemy(self, enemy, fair_distance, collision_list):
+        occupied = {e.pos for e in self.enemies} | {self.player.pos}
         # while an enemy has not been spawned
         while True:
             # generate random spawn point
             enemy_spawn_index = random.randint(0, len(collision_list) - 1)
             enemy_spawn = (collision_list[enemy_spawn_index][1], collision_list[enemy_spawn_index][2])
-            # check spawn distance, if too close to player, generate again
-            spawn_distance = (abs(spawn[0] - enemy_spawn[0]), abs(spawn[1] - enemy_spawn[1]))
+            if enemy_spawn in occupied:
+                continue
+            # check spawn distance from the player's current position, if too close, generate again
+            player_pos = self.player.pos
+            spawn_distance = (abs(player_pos[0] - enemy_spawn[0]), abs(player_pos[1] - enemy_spawn[1]))
             if spawn_distance[0] >= fair_distance or spawn_distance[1] >= fair_distance:
                 enemy.pos = enemy_spawn
                 self.enemies.append(enemy)
@@ -80,6 +84,7 @@ class Game:
         # parsing combat damage instructions
         #dealt, received = parse_damage(instructions)
         # providing damage value based on API instruction
+        dealt, received = str(dealt).upper(), str(received).upper()
         if dealt == "FATAL":
             dmg = combat_enemy.max_hp
         elif dealt == "HIGH":
@@ -105,19 +110,19 @@ class Game:
             rec = 0
         combat_enemy.hp -= dmg
         self.player.hp -= rec
-        if dealt != "NONE":
+        if dmg > 0:
             print(f'You attacked the {combat_enemy.name} for {dmg} damage.')
         else:
             print(f'You missed the {combat_enemy.name}.')
         if combat_enemy.hp > 0:
             print(f'It has {combat_enemy.hp} HP remaining.')
-        if rec != "NONE":
+        if rec > 0:
             print(f'You received {rec} damage.')
         else:
             print(f'You avoided the {combat_enemy.name}\'s attack.')
         if self.player.hp > 0:
             print(f'You have {self.player.hp} HP remaining.')
-        if combat_enemy.hp <= 0:
+        if combat_enemy.hp <= 0 and combat_enemy in self.enemies:
             print(f'You defeated the {combat_enemy.name}.')
             self.enemies.remove(combat_enemy)
             self.textBox.add(f'You defeated the {combat_enemy.name}.')
@@ -126,14 +131,24 @@ class Game:
         return False
     
     def item_spawn(self,enemy):
-        new_item, new_item_Type = api_call.gen_item(enemy,self.player,self.dropchance,self.text_p)
+        # generates the drop on a worker thread; apply_loot hands it to the player
+        loot_task = Task(api_call.gen_item,[enemy,self.dropchance,self.text_p],self.apply_loot)
+        self.active_chains.append(Chain(self.executor,[loot_task],print))
+
+    def apply_loot(self, result):
+        new_item, new_item_Type = result
         if new_item != "N":
-            textBox.add("you got a new " + new_item_Type)
-            textBox.add(new_item[0])
-            textBox.add(new_item[1])
+            if new_item_Type.lower() == "weapon":
+                self.player.weapons.append(new_item)
+            else:
+                self.player.items.append(new_item)
+            self.textBox.add("you got a new " + new_item_Type)
+            self.textBox.add(new_item[0])
+            self.textBox.add(new_item[1])
             self.dropchance =0
         else:
             self.dropchance += 1
+        return True
 
     """def state_update(self, order): # OLD
         if player.hp <= 0: #avoids processing reinforcements after game over
@@ -263,27 +278,35 @@ class Game:
             chain.update()
             if chain.done:
                 self.active_chains.remove(chain)
+                if chain.failed:
+                    self.text_p = "Something went wrong, and the moment passes."
         if not(self.active_chains):
             self.set_state = GameState.RUN
 
         return self.set_state
 
     def handle_use_item(self, result):
+        # applies the effect api_call.use_item decided on
         d, stat, effect, target, item = result
-        if d == False:
+        if not d:
             print(item)
-            self.text_p = "Nothing in range"
-            player.items.append(item)
+            self.text_p = "Nothing happens." if stat == "failed" else "Nothing in range"
+            self.player.items.append(item)
 
         else:
             self.text_p = d
             if stat == "description":
-                textBox.add(
+                target.current_effects.append(effect)
+                self.textBox.add(
                     "The " + target.name + " is now: " + effect
                 )
 
-            if stat == "hp" and target != player.name:
-                if target.hp <= 0:
+            elif target is self.player:
+                api_call.heal_handler_item(effect, target)
+
+            else:
+                api_call.combat_handler_item(effect, target)
+                if target.hp <= 0 and target in self.enemies:
                     self.enemies.remove(target)
                     self.item_spawn(target)
 
@@ -348,15 +371,30 @@ class Game:
             self.active_chains.append(enemy_combat_chain)
 
     def start_combat2(self, target):
-        player_hp, enemy_hp, summon, enemy_count, scen = api_call.start_combat(self.player,target,self.enemies,tiles_list,self.textBox)
-        if summon:
-            e1, e2, e3 = api_call.enemy_generator(scen, enemy_count, self.re_sprites)
+        # the LLM calls run on a worker thread; apply_combat applies the outcome on the main thread
+        self.set_state = GameState.FIGHT
+        combat_update_task = Task(api_call.start_combat,[self.player,target,self.re_sprites],self.apply_combat)
+        combat_chain = Chain(self.executor,[combat_update_task],print)
+        self.active_chains.append(combat_chain)
+        self.fight_enemy_sprite = pygame.transform.flip(target.sprites[0],True,False)
+
+    def apply_combat(self, outcome):
+        target, scen = outcome["enemy"], outcome["scenario"]
+        # knockback: push(target, pusher, dist, player, enemies, tiles)
+        knockback = {"increase": 2, "greatly increase": 3}
+        if outcome["player_distance"] in knockback:
+            api_call.push(self.player, target, knockback[outcome["player_distance"]], self.player, self.enemies, tiles_list)
+        if outcome["enemy_distance"] in knockback:
+            api_call.push(target, self.player, knockback[outcome["enemy_distance"]], self.player, self.enemies, tiles_list)
+        e1, e2, e3 = outcome["reinforcements"]
+        if e1 != 0:
             self.reinforcement(("NECRO", e1, e2, e3))
         self.text_p = scen
         target.last_fight = scen
-        EnemyDie = self.combat_handler(target, scen,enemy_hp,player_hp)
+        EnemyDie = self.combat_handler(target, scen,outcome["enemy_hp"],outcome["player_hp"])
         if EnemyDie:
             self.item_spawn(target)
+        return True
 
         
 
@@ -379,7 +417,7 @@ class Game:
             use_item_chain = Chain(self.executor,[use_item_task],print)
             self.active_chains.append(use_item_chain)
             self.set_state = GameState.ITEM
-            self.enemy_turn = True # stalls enemy turn until api is done
+            self.enemy_turn = True # enemies act once the result panel is dismissed
             self.playerAggress = False
             return
 
@@ -389,7 +427,7 @@ class Game:
 
             if player_attack is True: # attacks if enemy is in target tile
                 self.state_update_player(("ATK", player, attack_pos))
-                self.enemy_turn = True # stalls enemy turn until api is done
+                self.enemy_turn = True # enemies act once the result panel is dismissed
                 return
 
             elif turn == False: # stops enemy turn on failed move
@@ -409,37 +447,22 @@ class Game:
                     break
 
             # Calling API for combat
-            #self.start_combat(target)
-            self.set_state = GameState.FIGHT
-            combat_update_task = Task(self.start_combat2,[target])
-            combat_chain = Chain(self.executor,[combat_update_task],print)
-            self.active_chains.append(combat_chain)
-            self.fight_enemy_sprite = pygame.transform.flip(target.sprites[0],True,False)
-
+            self.start_combat2(target)
             self.playerAggress = True
 
 
 
     def state_update_enemy(self):
+        fight_started = False
         for enemy in self.enemies:
-            move_return = enemy.move_enemy(enemy.pos, tiles_list, tile_size, player.pos, self.enemies, True)
-            if move_return is None:
-                continue
-            
-            enemy.pos, enemy_attack = move_return #fixed bug where move_enemy would return None sometimes
+            enemy.pos, enemy_attack = enemy.move_enemy(enemy.pos, tiles_list, tile_size, player.pos, self.enemies, True)
 
             # Enemy attacking player
-            if enemy_attack:
-                print("ahh", self.playerAggress)
-            if enemy_attack is True and self.playerAggress is False:
-                # Only attacking if the player hasn't attacked previously, preventing doubled combat scenarios
-                #self.start_combat(enemy)
-                self.set_state = GameState.FIGHT
-                combat_update_task = Task(self.start_combat2,[enemy])
-                combat_chain = Chain(self.executor,[combat_update_task],print)
-                self.active_chains.append(combat_chain)
-                self.fight_enemy_sprite = pygame.transform.flip(enemy.sprites[0],True,False)
-                pass
+            # Only attacking if the player hasn't attacked previously, preventing doubled combat scenarios,
+            # and only one fight per turn so two fights never resolve at once
+            if enemy_attack is True and self.playerAggress is False and not fight_started:
+                self.start_combat2(enemy)
+                fight_started = True
         
 
         
@@ -574,7 +597,8 @@ if __name__ == "__main__":
                         elif event.key == pygame.K_SPACE:
                             game.state_update_player("SKIP")
 
-                if game.enemy_turn:
+                # held until the player's LLM action resolves and its panel is dismissed
+                if game.enemy_turn and not game.active_chains:
                     game.state_update_enemy()
                     game.enemy_turn = False
         

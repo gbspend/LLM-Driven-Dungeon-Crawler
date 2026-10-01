@@ -6,8 +6,11 @@ from characters import Character, Enemy
 from consts import *
 from panels import FightPanel
 import logging
+logger = logging.getLogger(__name__)
 
 #rewriting api interface to be threaded and more flexible
+#func runs on a worker thread and must not change game state;
+#postf and finalf run on the main thread, so they apply the results
 
 #"link" in the chain of thought
 class Task:
@@ -19,17 +22,18 @@ class Task:
         self.future = None
         self.result = None
         self.done = False
+        self.failed = False #True if func raised; postf is then skipped
         self.proceed = False #True if next link in chain of thought should execute
         self.inputneeded = inputneeded
 
     def start(self, executor, force_args = None):
-        print(self.args)
+        #print(self.args)
         if force_args is None or not(self.inputneeded):
-            print("non force")
+            #print("non force")
             self.future = executor.submit(self.func, *self.args)
         else:
-            print("force",type(self.args),type(force_args))
-            print(force_args)
+            #print("force",type(self.args),type(force_args))
+            #print(force_args)
             #args = self.args + force_args
             self.future = executor.submit(self.func, *force_args)
 
@@ -38,7 +42,14 @@ class Task:
         if self.done == True:
             return
         if self.future and self.future.done():
-            self.result = self.future.result()
+            try:
+                self.result = self.future.result()
+            except Exception:
+                # don't let a worker error crash the game loop
+                logger.exception("task %s failed", getattr(self.func, "__name__", self.func))
+                self.failed = True
+                self.done = True
+                return
             if not self.postf:
                 self.proceed = True
             else:
@@ -59,7 +70,8 @@ class Chain:
         self.last_result = None
         self.output = None
         self.done = False
-    
+        self.failed = False #True if a link failed; finalf is then skipped
+
     def update(self):
         if not self.links or self.i >= len(self.links) or self.done:
             return
@@ -70,7 +82,10 @@ class Chain:
         else:
             #print("curr update:",self.i)
             curr.update()
-        if curr.done:
+        if curr.done and curr.failed:
+            self.failed = True
+            self.done = True
+        elif curr.done:
             self.running = False
             self.last_result = curr.result
             if curr.proceed and self.i < len(self.links)-1:

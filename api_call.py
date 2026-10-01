@@ -3,6 +3,7 @@ logger = logging.getLogger(__name__)
 
 from groq import Groq
 import json
+import random
 from secret import KEY
 
 client = Groq(api_key = KEY )
@@ -40,34 +41,38 @@ def parse_json(resp):
 
 #Groq decomissioned Llama 3.1 on August 16, 2026
 
+#returns a dict (incl_json) or narration text; after 4 failed tries returns {} or ""
+#failures include API errors (rate limits, network) as well as unparseable replies
 def get_response2(prompt_str, model_str="openai/gpt-oss-20b", incl_json=True, tryc = 0):
     logger.info("PROMPT:\n"+prompt_str)
-    completion = client.chat.completions.create(
-        model=model_str,
-        messages=[
-            {
-                "role": "system",
-                "content": SYS_PROMPT_JSON if incl_json else SCENARIO_PROMPT
-            },
-            {
-                "role": "user",
-                "content": prompt_str,
-            },
-        ]
-    )
-    response_str = completion.choices[0].message.content
-    logger.info("RESPONSE:\n"+response_str)
-    if not incl_json:
-        return response_str
-    else:
-        try:
-            return parse_json(response_str)
-        except:
-            tryc += 1
-            if tryc == 4:
-                return "base"
-            print("save get_response2")
-            return get_response2(prompt_str, model_str, incl_json, tryc)
+    try:
+        completion = client.chat.completions.create(
+            model=model_str,
+            messages=[
+                {
+                    "role": "system",
+                    "content": SYS_PROMPT_JSON if incl_json else SCENARIO_PROMPT
+                },
+                {
+                    "role": "user",
+                    "content": prompt_str,
+                },
+            ]
+        )
+        response_str = completion.choices[0].message.content or ""
+        logger.info("RESPONSE:\n"+response_str)
+        if not incl_json:
+            return response_str
+        parsed = parse_json(response_str)
+        if not isinstance(parsed, dict):
+            raise ValueError("expected a JSON object: " + repr(response_str))
+        return parsed
+    except Exception:
+        logger.exception("get_response2 try %d failed", tryc)
+    tryc += 1
+    if tryc == 4:
+        return {} if incl_json else ""
+    return get_response2(prompt_str, model_str, incl_json, tryc)
 
 def combat_scenario(player, enemy):
     prompt_str = f'''Narratively describe the next exchange of combat between the player and enemy.
@@ -357,10 +362,12 @@ def generate_reinforcement(scenario, count):
 def parse_sprite(name, desc, sprites):
     sprite_name_list = list(sprites.keys())
     prompt_str = f"""Given the name {name} and description {desc} of an enemy, select the sprite from the following list whose name suits that enemy the best. Respond with only the name of the sprite you do not need to tell why you picked that one (e.g. {{"sprite": "sprite name"}}). List: {sprite_name_list}"""
-    output = get_response2(prompt_str)["sprite"]
+    output = str(get_response2(prompt_str).get("sprite", "")).lower()
     for sprite in sprites:
-        if sprite in output:
+        if sprite.lower() in output:
             return sprites[sprite]
+    # the LLM named a sprite that doesn't exist; any sprite beats a None that crashes draw()
+    return random.choice(list(sprites.values()))
 
 def enemy_generator(scenario, enemy_count, sprites,tryc=0):
     #scenario = scenario.split("DEALT")[0]
@@ -453,7 +460,7 @@ def item_spawn_item_update(enemy):
     "description": "A vial holding some healing liquid"
     }}
     
-    Using the format from the examples, run a scenario with this enemy: {enemy.name} and the following description: {enemy.description}.'''
+    Using the format from the examples, run a scenario with this enemy: {enemy.name} and the following description: {enemy.description}.
     """
     return get_response2(prompt_str)
 
@@ -476,25 +483,19 @@ def item_spawn_weapon_update(enemy):
     "description": "A sharp bone that can be used as a weapon if needed"
     }}
 
-    Using the format from the examples, run a scenario with this enemy: {enemy.name} and the following description: {enemy.description}.'''
+    Using the format from the examples, run a scenario with this enemy: {enemy.name} and the following description: {enemy.description}.
     """
     return get_response2(prompt_str)
 
 
-def make(Type,FType,enemy,player):
-    weapon = FType(enemy)
-    weapon_and_description = (weapon["drops"],weapon["description"])
+#runs on a worker thread, so it only returns the drop; Game.apply_loot adds it to the player
+def make(FType,enemy):
+    drop = FType(enemy)
+    drop_and_description = (drop["drops"],drop["description"])
+    print(drop_and_description, "\n end")
+    return drop_and_description
 
-    if Type["type"].lower() == "weapon":
-       print(weapon_and_description, "\n end")
-       player.weapons.append(weapon_and_description)
-       return weapon_and_description
-    else:
-       print(weapon_and_description, "\n end")
-       player.items.append(weapon_and_description)
-       return weapon_and_description
-   
-def gen_item(enemy,player=0,count=4, ran="", tryc = 0):
+def gen_item(enemy,count=4, ran="", tryc = 0):
     print(count)
 
     # diditdrop = drop_item_update(count)
@@ -513,17 +514,17 @@ def gen_item(enemy,player=0,count=4, ran="", tryc = 0):
 
     try: 
         if Type["type"].lower() == "weapon":
-            wandd = make(Type,item_spawn_weapon_update,enemy,player)
+            wandd = make(item_spawn_weapon_update,enemy)
             return wandd, Type["type"]
         else:
-            iandd = make(Type,item_spawn_item_update,enemy,player)
+            iandd = make(item_spawn_item_update,enemy)
             return iandd, Type["type"]
-    except:
+    except Exception:
         print("Save gen_item")
         tryc +=1
         if tryc > 4:
             return "N","N"
-        return gen_item(enemy,player,count,ran,tryc)
+        return gen_item(enemy,count,ran,tryc)
 
 #===================================== item use ========================================================
 
@@ -703,13 +704,13 @@ def item_enemy_hpstat_update(item_and_description, enemy, eState):
 
     Using the format from the examples, run a scenario with 
     this Item: {item_and_description[0]} description: {item_and_description[1]}
-    and this enemy: {enemy.name} description: {enemy.get_desc} Current enemy state: {eState}
+    and this enemy: {enemy.name} description: {enemy.get_desc()} Current enemy state: {eState}
 
     """
     return get_response2(prompt_str)
 
 def item_player_hpstat_update(item_and_description, player, tState=0):
-    prompt_str = f""""An item has just been used by the player and will affect the player and change the player's hp.
+    prompt_str = f"""An item has just been used by the player and will affect the player and change the player's hp.
     How you will do this:
 
     1. Describe how the healing looks.
@@ -734,12 +735,15 @@ def item_player_hpstat_update(item_and_description, player, tState=0):
 
 #========================
 
+#runs on a worker thread: only decides the effect, Game.handle_use_item applies it
+#returns (description, stat, effect, target, item); description is False when nothing happens,
+#with stat "failed" if the LLM calls kept failing
 def use_item(item_and_description,enemies,player,tryc=0):
     try:
         target, target_type = use_item_target(item_and_description,enemies,player)
         if target == False:
             return target, "", "", "", item_and_description
-        
+
         stat = use_item_stat(item_and_description,target_type)
         if stat == "description":
             dbuff, ebuff = use_item_description(item_and_description,target,target_type)
@@ -747,11 +751,11 @@ def use_item(item_and_description,enemies,player,tryc=0):
         else:
             dhp, ehp = use_item_hp(item_and_description,target,target_type)
             return dhp, stat, ehp, target, item_and_description
-    except:
+    except Exception:
         print("Save use_item")
         tryc +=1
         if tryc > 4:
-            return target, "", "", "", item_and_description
+            return False, "failed", "", False, item_and_description
         return use_item(item_and_description,enemies,player,tryc)
 
 
@@ -796,25 +800,20 @@ def use_item_description(item_and_description,target,target_type):
     dbuff, ebuff = buff["description"], buff["effect"]
 
     #print(dbuff, ebuff)
-    target.current_effects.append(ebuff)
     return dbuff, ebuff
 
 
 def use_item_hp(item_and_description,target,target_type):
-    if target_type == "E": 
+    if target_type == "E":
         hpstat_update = item_enemy_hpstat_update
-        hp_handle = combat_handler_item
     else:
         hpstat_update = item_player_hpstat_update
-        hp_handle = heal_handler_item
-    
+
     tState = target.get_state()
     #print(tState)
     hp = hpstat_update(item_and_description,target,tState)
     #print(hp)
     dhp, ehp = hp["description"], hp["effect"].lower()
-
-    hp_handle(ehp,target)
     #print(ehp,dhp)
     return dhp, ehp
 
@@ -971,46 +970,39 @@ effects: {effects}
 '''
     return get_response2(prompt_str, incl_json=False)
 
-def start_combat(player,enemy,enemies,tiles,textbox):
-    #scen = "The warrior swings his longsword in a wide arc, attempting to strike the bat as it darts and weaves through the air, but the agile creature narrowly avoids the blade. The bat retaliates by swooping down and raking its sharp claws across the warrior's chest, leaving shallow gashes."
+#used when the LLM leaves out a variable or the call fails outright
+COMBAT_DEFAULTS = {"player_hp": "NONE", "player_status": "unchanged", "player_distance": "unchanged",
+                   "enemy_hp": "NONE", "enemy_status": "unchanged", "enemy_distance": "unchanged", "enemy_count": 0}
+
+#runs on a worker thread: only calls the LLM and reads game state, never changes it
+#returns an outcome dict that Game.apply_combat applies on the main thread
+def start_combat(player,enemy,sprites):
     scen1 = combat_scenario(player, enemy) # make scenario
+    if not scen1:
+        scen1 = f"The {player.name} and the {enemy.name} circle each other warily."
     print(scen1)
-    vars = combat_vars_together(player,enemy,scen1) # how does scenario change things
-    scen = combat_scenario_redo(scen1,vars)
+    vars = {**COMBAT_DEFAULTS, **combat_vars_together(player,enemy,scen1)} # how does scenario change things
+    scen = combat_scenario_redo(scen1,vars) or scen1
     print(scen)
     print("redo:",scen == scen1)
-    player_hp, player_status, player_distance = vars["player_hp"],vars["player_status"],vars["player_distance"] # player changes
-    enemy_hp, enemy_status, enemy_distance  = vars["enemy_hp"],vars["enemy_status"],vars["enemy_distance"] # enemy changes
-    enemy_count = vars["enemy_count"] # other changes
-    #print(vars)
-    
-    if player_status.lower() != "unchanged":
-        #player.current_effects.append(player_status)
-        #s = "The Knight is now: " + player_status
-        #textbox.add(s)
-        pass
 
-    if enemy_status.lower() != "unchanged":
-        #enemy.current_effects.append(enemy_status)
-        #s = "The enemy is now: " + enemy_status
-        #textbox.add(s)
-        pass
+    try:
+        enemy_count = max(0, min(3, int(vars["enemy_count"])))
+    except (TypeError, ValueError):
+        enemy_count = 0
+    reinforcements = enemy_generator(scen, enemy_count, sprites) if enemy_count else (0, 0, 0)
 
-    if player_distance.lower() != "unchanged":  # push(target, pusher, dist, player, enemies, tiles)
-        if player_distance.lower() == "increase":
-            push(player, enemy, 2, player, enemies, tiles)
-        if player_distance.lower() == "greatly increase":
-            push(player, enemy, 3, player, enemies, tiles)
-
-    if enemy_distance.lower() != "unchanged":
-        if enemy_distance.lower() == "increase":
-            push(enemy, player, 2, player, enemies, tiles)
-        if enemy_distance.lower() == "greatly increase":
-            push(enemy, player, 3, player, enemies, tiles)
-    
-    if enemy_count != 0:
-        summon = True
-    else:
-        summon = False
-    print(player_hp, enemy_hp, summon, enemy_count, scen)
-    return player_hp, enemy_hp, summon, enemy_count, scen
+    outcome = {
+        "enemy": enemy,
+        "scenario": scen,
+        "player_hp": str(vars["player_hp"]).upper(),
+        "enemy_hp": str(vars["enemy_hp"]).upper(),
+        "player_distance": str(vars["player_distance"]).lower(),
+        "enemy_distance": str(vars["enemy_distance"]).lower(),
+        # statuses are not applied yet
+        "player_status": str(vars["player_status"]),
+        "enemy_status": str(vars["enemy_status"]),
+        "reinforcements": reinforcements,
+    }
+    print(outcome)
+    return outcome

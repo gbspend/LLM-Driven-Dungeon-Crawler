@@ -4,10 +4,10 @@ from consts import *
 
 # helper function governing HP state of player and enemy
 def hp_state(char):
-    if char.hp < int(0.7 * char.max_hp) and char.hp > int(0.3 * char.max_hp):
-        return "WOUNDED"
-    elif char.hp < int(0.3 * char.max_hp):
+    if char.hp < 0.3 * char.max_hp:
         return "MAIMED"
+    elif char.hp < 0.7 * char.max_hp:
+        return "WOUNDED"
     else:
         return "HEALTHY"
 
@@ -49,9 +49,7 @@ class Character:
     def get_desc(self):
         desc = self.description + ", armed with " + self.weapons[self.weapon_i][1]
         if self.current_effects:
-            desc = desc + "with the current effects:"
-            for i in self.current_effects:
-                desc = desc + ", " + str(i)
+            desc = desc + " With the current effects: " + ", ".join(str(i) for i in self.current_effects)
             self.current_effects = [] # only one round
         return desc
     
@@ -106,7 +104,9 @@ class Character:
                     if flip_facing:
                         self.face_right = not self.face_right
                     return t_pos, turn, attack, dest
-    
+        # destination is off the map: treat it like a wall
+        return pos, turn, attack, dest
+
     def draw(self, screen):
         if self.dead:
             screen.blit(self.dead_sprite, self.pos)
@@ -265,7 +265,9 @@ class Enemy:
                     if flip_facing:
                         self.face_right = not self.face_right
                     return t_pos, attack
-                    
+        # destination is off the map: stay put
+        return pos, attack
+
     def get_rect(self):
         return self.sprites[0].get_rect(topleft=self.pos)
     
